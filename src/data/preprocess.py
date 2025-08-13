@@ -233,8 +233,8 @@ class FraudDataset(Dataset):
         """
         Initialize the dataset 
         """
-        self.features = torch.tensor(features.values if isinstance(features, pd.DataFrame) else features, dtype=torch.float32)
-        self.labels = torch.tensor(labels.values if isinstance(labels, pd.Series) else labels, dtype=torch.float32).unsqueeze(1) # Unsqueeze for BCEWithLogitsLoss
+        self.features = features
+        self.labels = labels
         self.sequence_length = sequence_length
         self.time_steps = time_steps # Used if a more complex SNN encoding is done here
 
@@ -263,11 +263,9 @@ class FraudDataset(Dataset):
             start, end = self.indices[idx]
             features = self.features[start:end]
             labels = self.labels[start:end]
+            return features, labels
         else:
-            features = self.features[self.indices[idx]]
-            labels = self.labels[self.indices[idx]]
-
-        return features, labels
+            return features[idx], labels[idx]
 
 def get_preprocessed_data(dataset_name="credit_card_fraud", target_column="Class", strategy='X/y tensors'):
     """

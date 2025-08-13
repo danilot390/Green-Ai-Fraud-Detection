@@ -209,3 +209,10 @@ __marimo__/
 # Temporary file
 structure.txt 
 .DS_Store
+
+# Model checkpoint files
+*.pth
+
+# Unnecesary preprocessing output files
+data/processed/credit_card_fraud/
+data/processed/synthetic_data/

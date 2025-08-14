@@ -9,7 +9,7 @@ from src.data.preprocess import FraudDataset
 
 from models.snn_model import SNNModel 
 from models.conventional_model import ConventionalNN
-# from src.models.hybrid_model import HybridModel
+from models.hybrid_model import HybridModel
 from src.utils.config_parser import load_config
 from src.utils.metrics import calculate_metrics
 
@@ -18,12 +18,12 @@ from src.utils.metrics import calculate_metrics
 training_config = load_config('config/training_config.yaml')
 data_config = load_config('config/data_config.yaml')
 model_config = load_config('config/model_config.yaml')
-is_snn = model_config['snn_model']['enabled']
+is_snn_model = model_config['snn_model']['enabled']
 
 def get_dataloaders(dataset_name="credit_card_fraud"):
     """
     Loads preprocessed tensors and creates PyTorch DataLoaders.
-    Handles both Conventional and Spiking data formats.
+    Handles both non-sequential (Conventional NN) and sequential (Spiking NN and Hybrid) data formats.
     """
 
     batch_size = training_config['training_params']['batch_size']
@@ -40,12 +40,9 @@ def get_dataloaders(dataset_name="credit_card_fraud"):
     y_test = torch.load(os.path.join(processed_dir, 'y_test.pt'))
 
     # Determine sequence_length and time_steps based on model type
-    sequence_length = None
-    time_steps = None
-    if is_snn:
-        # For SNN models to reshape the data
-        sequence_length = data_config['preprocessing_params']['sequence_length']
-        time_steps = data_config['preprocessing_params']['snn_input_encoding']['time_steps']
+    # For SNN or Hybrid models to reshape the data
+    sequence_length =data_config['preprocessing_params']['sequence_length'] if is_snn_model else None
+    time_steps = data_config['preprocessing_params']['snn_input_encoding']['time_steps'] if is_snn_model else None
 
     # Create Datasets and DataLoaders
     train_dataset = FraudDataset(X_train, y_train, sequence_length, time_steps)
@@ -85,6 +82,11 @@ class Trainer:
 
             self.optimizer.zero_grad()
             output = self.model(data)
+
+            # Reshape target to match hte model's output shape
+            if isinstance(self.model, HybridModel) or (isinstance(self.model, ConventionalNN) and is_snn_model):
+                target = target[:, -1, :].reshape(output.shape)
+
             loss = self.loss_fn(output, target)
             loss.backward()
             self.optimizer.step()
@@ -112,6 +114,11 @@ class Trainer:
                     self.model.reset_membranes()
 
                 output = self.model(data)
+
+                # Reshape target to match hte model's output shape
+                if isinstance(self.model, HybridModel) or (isinstance(self.model, ConventionalNN) and is_snn_model):
+                    target = target[:, -1, :].reshape(output.shape)
+
                 loss = self.loss_fn(output, target)
                 total_loss += loss.item()
                 
@@ -174,25 +181,35 @@ if __name__ == '__main__':
                     else 'cpu')
             )
     print(f"Using device: {device}")
+
+    # Check which model use
+    is_convetional_model = model_config['conventional_nn_model']['enabled']
+    is_hybrid_model = True if is_snn_model and is_convetional_model else False
+    
     
     # Load DataLoaders
     # You would have previously run make_dataset.py to generate these
-    train_loader, val_loader, _ = get_dataloaders(dataset_name="credit_card_fraud")
+    train_loader, val_loader, test_loader = get_dataloaders(dataset_name="credit_card_fraud")
 
     # Initialize Model
     # Handle the different models from config
     input_size = train_loader.dataset.features.shape[1] 
-    time_steps = data_config['preprocessing_params']['snn_input_encoding']['time_steps'] if is_snn else None
+    time_steps = data_config['preprocessing_params']['snn_input_encoding']['time_steps'] if is_snn_model else None
 
     # This part requires a bit of logic based on your model_config
-    if model_config['snn_model']['enabled'] and model_config['conventional_nn_model']['enabled']:
+    if is_hybrid_model:
         # This is for the Hybrid Model
-        # model = HybridModel(input_size=input_size, config=model_config).to(device)
+        print('Hybrid model started \n','= '*33)
+        model = HybridModel(config=model_config).to(device)
         pass
-    elif model_config['snn_model']['enabled']:
+    elif is_snn_model:
+        print('SNN model started \n','= '*33)
         model = SNNModel(input_size=input_size, time_steps=time_steps, config=model_config).to(device)
-    else:
+    elif is_convetional_model:
+        print('CNN model started \n','= '*33)
         model = ConventionalNN(input_size=input_size, config=model_config).to(device)
+    else:
+        raise ValueError("INvalid model configuration. At least one model must be enabled.")
 
     # Initialize Loss Function and Optimizer
     loss_fn = nn.BCEWithLogitsLoss()

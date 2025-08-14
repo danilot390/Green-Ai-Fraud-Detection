@@ -26,24 +26,24 @@ snn_model:
 conventional_nn_model:
   mode_name: 'Compressed Fraud Detector CNN'
   enabled: False
-  # input_size: 32 # Input from SNN output_size
-  # architecture_type: 'MLF'
-  # mlp_layers:
-  #   - units: 256
-  #     activation: 'ReLU'
-  #     dropout_rate: 0.3
-  #   - units: 128
-  #     activation: 'ReLU'
-  #     dropout_rate: 0.2
-  # cnn_latyers:
-  #   - out_channels: 64
-  #     kernel_size: 3
-  #     padding: 1
-  #   - out_channels: 128
-  #     kernel_size: 3
-  #     padding: 1
-  # output_size: 1 # Binary classification for fraud detection
-  # output_activation: 'Sigmoid' # For binary classification
+  input_size: 32 # Input from SNN output_size
+  architecture_type: 'MLF'
+  mlp_layers:
+    - units: 256
+      activation: 'ReLU'
+      dropout_rate: 0.3
+    - units: 128
+      activation: 'ReLU'
+      dropout_rate: 0.2
+  cnn_layers:
+    - out_channels: 64
+      kernel_size: 3
+      padding: 1
+    - out_channels: 128
+      kernel_size: 3
+      padding: 1
+  output_size: 1 # Binary classification for fraud detection
+  output_activation: 'Sigmoid' # For binary classification
 
 # Model compression parameters
 compression_params:

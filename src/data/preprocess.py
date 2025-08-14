@@ -11,11 +11,9 @@ import os
 from src.utils.config_parser import load_config
 
 # Load configuration globally for the module
-try:
-    data_config = load_config('config/data_config.yaml')
-except FileNotFoundError:
-    raise FileNotFoundError("Configuration file not found in 'config' directory.")   
-    exit()
+data_config = load_config('config/data_config.yaml')
+model_config = load_config('config/model_config.yaml')
+is_snn = model_config['snn_model']['enabled']
 
 # Dataset paths
 RAW_DATA_PATH = data_config['raw_data_paths']
@@ -265,7 +263,7 @@ class FraudDataset(Dataset):
             labels = self.labels[start:end]
             return features, labels
         else:
-            return features[idx], labels[idx]
+            return self.features[idx], self.labels[idx]
 
 def get_preprocessed_data(dataset_name="credit_card_fraud", target_column="Class", strategy='X/y tensors'):
     """

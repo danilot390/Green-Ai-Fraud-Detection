@@ -9,9 +9,8 @@ def to_numpy_squeezed(instance):
     if isinstance(instance, torch.Tensor):
         instance = instance.detach().cpu().numpy()
     instance = np.squeeze(instance)
-    print(instance)
-
     return instance
+
 def calculate_metrics(y_true, y_pred_binary, y_pred_proba=None):
     """
     Calculate key classification metrics for imbalanced datasets

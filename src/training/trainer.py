@@ -8,7 +8,7 @@ from src.utils.config_parser import load_config
 from src.data.preprocess import FraudDataset 
 
 from models.snn_model import SNNModel 
-# from src.models.conventional_nn import ConventionalNN
+from models.conventional_model import ConventionalNN
 # from src.models.hybrid_model import HybridModel
 from src.utils.config_parser import load_config
 from src.utils.metrics import calculate_metrics
@@ -18,17 +18,17 @@ from src.utils.metrics import calculate_metrics
 training_config = load_config('config/training_config.yaml')
 data_config = load_config('config/data_config.yaml')
 model_config = load_config('config/model_config.yaml')
+is_snn = model_config['snn_model']['enabled']
 
 def get_dataloaders(dataset_name="credit_card_fraud"):
     """
     Loads preprocessed tensors and creates PyTorch DataLoaders.
+    Handles both Conventional and Spiking data formats.
     """
 
     batch_size = training_config['training_params']['batch_size']
     num_workers = training_config['training_params']['num_workers']
-    sequence_length = data_config['preprocessing_params'].get('sequence_length', None)
-    time_steps = data_config['preprocessing_params'].get('snn_input_encoding', {}).get('time_steps', None)
-
+    
     processed_dir = os.path.join('data/processed', dataset_name)
     
     # Load tensors
@@ -38,6 +38,14 @@ def get_dataloaders(dataset_name="credit_card_fraud"):
     y_val = torch.load(os.path.join(processed_dir, 'y_val.pt'))
     X_test = torch.load(os.path.join(processed_dir, 'X_test.pt'))
     y_test = torch.load(os.path.join(processed_dir, 'y_test.pt'))
+
+    # Determine sequence_length and time_steps based on model type
+    sequence_length = None
+    time_steps = None
+    if is_snn:
+        # For SNN models to reshape the data
+        sequence_length = data_config['preprocessing_params']['sequence_length']
+        time_steps = data_config['preprocessing_params']['snn_input_encoding']['time_steps']
 
     # Create Datasets and DataLoaders
     train_dataset = FraudDataset(X_train, y_train, sequence_length, time_steps)
@@ -69,13 +77,13 @@ class Trainer:
         total_loss = 0
 
         # Reset the SNN's state before each epoch
-        self.model.reset_membranes()
+        if hasattr(self.model, 'reset_membranes'):
+            self.model.reset_membranes()
 
-        for batch_idx, (data, target) in enumerate(self.train_loader):
+        for data, target in self.train_loader:
             data, target = data.to(self.device), target.to(self.device)
 
             self.optimizer.zero_grad()
-
             output = self.model(data)
             loss = self.loss_fn(output, target)
             loss.backward()
@@ -165,7 +173,6 @@ if __name__ == '__main__':
                 else ('mps' if device_str == 'mps' and torch.backends.mps.is_available()
                     else 'cpu')
             )
-    
     print(f"Using device: {device}")
     
     # Load DataLoaders
@@ -173,9 +180,9 @@ if __name__ == '__main__':
     train_loader, val_loader, _ = get_dataloaders(dataset_name="credit_card_fraud")
 
     # Initialize Model
-    # Here, we need to handle the different models from config
-    input_size = train_loader.dataset.features.shape[1] # Or shape[2] for sequential data
-    time_steps = data_config['preprocessing_params']['snn_input_encoding']['time_steps']
+    # Handle the different models from config
+    input_size = train_loader.dataset.features.shape[1] 
+    time_steps = data_config['preprocessing_params']['snn_input_encoding']['time_steps'] if is_snn else None
 
     # This part requires a bit of logic based on your model_config
     if model_config['snn_model']['enabled'] and model_config['conventional_nn_model']['enabled']:
@@ -185,8 +192,7 @@ if __name__ == '__main__':
     elif model_config['snn_model']['enabled']:
         model = SNNModel(input_size=input_size, time_steps=time_steps, config=model_config).to(device)
     else:
-        # model = ConventionalNN(input_size=input_size, config=model_config).to(device)
-        pass
+        model = ConventionalNN(input_size=input_size, config=model_config).to(device)
 
     # Initialize Loss Function and Optimizer
     loss_fn = nn.BCEWithLogitsLoss()

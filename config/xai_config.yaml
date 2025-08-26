@@ -1,0 +1,25 @@
+# Explainable AI (XAI) Configuration
+# ----------------------------------
+
+xai_methods:
+  lime:
+    enabled: True
+    sample_around_instance: True # Sample around the instance to explain
+    num_features: 10 # Number of features to include in explanation
+    kernel_width: 0.75
+    save_html: True 
+
+  # snn_interpretation:
+  #   enabled: False
+  #   spike_visualization_samples: 5 # Number of fraud/non-fraud samples to visualize spike trains
+  #   neuron_activation_analysis_layers: ["snn_layer1", "snn_layer2"] # Layers to analyze
+  #   temporal_pattern_detection:
+  #     enabled: True
+  #     window_size: 5 # Analyze fraud patterns within a 5-step window
+  # explanation_output_path: "docs/reports/xai_explanations/"
+  # explanation_format: "html" # Options: "html", "json", "pdf"
+  # shap:
+  # enabled: False
+  # explainer_type: "KernelExplainer" # Options: "KernelExplainer", "DeepExplainer" etc.
+  # num_samples: 100 # For KernelExplainer, number of samples to approximate SHAP values
+  # background_data_samples: 50 # Number of background samples from training data

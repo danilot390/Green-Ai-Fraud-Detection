@@ -1,0 +1,61 @@
+# Model Configuration File
+# ===========================================================
+# This file contains the configuration for model parameters and settings  
+
+# Spiking Neural Network (SNN) parameters
+snn_model:
+  enabled: False 
+  model_name: 'SNN Early Warning System '
+  layer_types: ['Linear', 'LIF']
+  input_size: 29 # Number of input features
+  time_steps: 100 
+
+  hidden_layers: 
+    # - units: 128
+    #   activation: 'LIF'
+    #   beta: 0.95 #Leakage parameter for LIF neurons
+    - units: 64
+      activation: 'LIF'
+      beta: 0.90 #Leakage parameter for LIF neurons
+
+  output_size: 32
+  threshold: 1.0 # Threshold for firing neurons
+  sparse_gradient: True # Use sparse gradients for efficiency
+
+# Conventional Neural Network (CNN) parameters
+conventional_nn_model:
+  mode_name: 'Compressed Fraud Detector CNN'
+  enabled: True
+  input_size: 32 # Input from SNN output_size
+  architecture_type: 'MLF'
+  mlp_layers:
+    # - units: 256
+    #   activation: 'ReLU'
+    #   dropout_rate: 0.3
+    - units: 128
+      activation: 'ReLU'
+      dropout_rate: 0.2
+  cnn_layers:
+    - out_channels: 64
+      kernel_size: 3
+      padding: 1
+    - out_channels: 128
+      kernel_size: 3
+      padding: 1
+  output_size: 1 # Binary classification for fraud detection
+  output_activation: 'Sigmoid' # For binary classification
+
+# Model compression parameters
+compression_params:
+  pruning:
+    enabled: True
+    method: 'magnitude' # Pruning based on weight magnitude
+    sparsity_target: 0.7 # Target sparsity level
+    pruning_schedule: 'polynomial' # Polynomial decay schedule for pruning
+    pruning_frequency: 100 # Prune every 100 epochs
+  quantization:
+    enabled: False
+    method: 'dynamic quantization' # Dynamic Quantization 
+    bit_width: 8 # Quantize to 8 bits
+    observer_type: 'minmax' # Min-max observer for quantization
+    quantization_scheme: 'symmetric' # Symmetric quantization

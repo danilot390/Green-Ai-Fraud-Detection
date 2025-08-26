@@ -1,0 +1,40 @@
+# Data Configuration File
+# ===========================================================
+# This file contains the configuration for data paths and settings
+
+# Raw data directory
+raw_data_paths:
+  credit_card_fraud: "data/raw/creditcard.csv"
+  synthetic_data: "data/raw/PS_20174392719_1491204439457_log.csv"
+
+# Processed data directory
+processed_data_paths:
+  credit_card_fraud_path : "data/processed/credit_card_fraud"
+  synthetic_data_path : "data/processed/synthetic_data"
+
+# Data split parameters
+data_ratios:
+  train: 0.7
+  validation: 0.15
+  test: 0.15
+  stratify: 'Class' # Best for fraud detection tasks
+  random_state: 42 # Ensures reproducibility
+
+# Data preprocessing parameters
+preprocessing_params:
+  drop_columns: ['Time']
+  scaling_method: 'StandardScaler' # Standardization for numerical features
+  handle_imbalanced_data: True
+  imbalance_method: 'SMOTE' # Synthetic Minority Over-sampling Technique
+  smote_sampling_strategy: 'minority' # Focus on minority class
+  sequence_length: 10 # For time series data, useful for SNN models
+  step_size : 1 # Step size for creating sequences
+  num_features: 29
+  n_f : 64
+  snn_input_encoding:
+    method: 'rate_coding'
+    time_steps: 100 # Number of time steps for SNN input encoding
+
+# Dataset training
+dataset_training:
+  dataset_name: 'credit_card_fraud'

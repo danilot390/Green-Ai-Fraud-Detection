@@ -2,6 +2,7 @@
 # ----------------------------------
 
 xai_methods:
+  model: "best_HybridModel.pth"
   lime:
     enabled: True
     sample_around_instance: True # Sample around the instance to explain

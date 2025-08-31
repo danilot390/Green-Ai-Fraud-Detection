@@ -23,6 +23,9 @@ captum==0.8.0     # PyTorch-native library for interpretability and XAI
 # Energy Consumption Estimation
 codecarbon==3.0.4  # For estimating CO2 emissions and energy consumption of your code
 
+# For calculating FLOPs of PyTorch models
+ptflops==0.6.8
+
 # Configuration
 pyyaml==6.0.1    
 omegaconf==2.3.0 

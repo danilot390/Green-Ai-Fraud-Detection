@@ -6,6 +6,7 @@ class ConventionalNN(nn.Module):
         super().__init__()
         self.config = config['conventional_nn_model']
         self.input_size = input_size
+        self.model_name = type(self).__name__ 
 
         # Build MLP layers dynamically from the config
         mlp_layers = []

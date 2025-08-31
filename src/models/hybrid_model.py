@@ -16,9 +16,9 @@ class HybridModel(nn.Module):
         """
         super().__init__()
         self.snn_time_steps = snn_time_steps
-        
         snn_config = config['snn_model']
         conv_config = config['conventional_nn_model']
+        self.model_name = type(self).__name__ 
         
         # Get the SNN hidden size from the 'hidden_layers' list in the config
         snn_hidden_size = snn_config['hidden_layers'][-1]['units']
@@ -27,7 +27,7 @@ class HybridModel(nn.Module):
         # SNN part: acts as one of the feature extractors
         # This is the SNN network which processes the sequential data
         self.snn_model = nn.Sequential(
-            nn.Linear(snn_input_size, snn_config['hidden_layers'][0]['units']),
+            nn.Linear(snn_input_size, snn_config['hidden_layers'][-1]['units']),
             neuron.LIFNode(tau=2.0)
         )
         

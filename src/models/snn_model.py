@@ -11,6 +11,7 @@ class SNNModel(nn.Module):
         self.input_size = input_size
         self.time_steps = time_steps
         self.hybrid = hybrid
+        self.model_name = type(self).__name__ 
 
         # Define the surrogate gradient for backpropagation
         spike_grad = surrogate.fast_sigmoid()

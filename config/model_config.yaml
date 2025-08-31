@@ -4,22 +4,20 @@
 
 # Spiking Neural Network (SNN) parameters
 snn_model:
-  enabled: False 
+  enabled: True 
   model_name: 'SNN Early Warning System '
   layer_types: ['Linear', 'LIF']
   input_size: 29 # Number of input features
-  time_steps: 100 
-
+  time_steps: 50 
   hidden_layers: 
-    # - units: 128
-    #   activation: 'LIF'
-    #   beta: 0.95 #Leakage parameter for LIF neurons
+    - units: 128
+      activation: 'LIF'
+      beta: 0.97 #Leakage parameter for LIF neurons
     - units: 64
       activation: 'LIF'
-      beta: 0.90 #Leakage parameter for LIF neurons
-
+      beta: 0.95 #Leakage parameter for LIF neurons
   output_size: 32
-  threshold: 1.0 # Threshold for firing neurons
+  threshold: 0.5 # Threshold for firing neurons
   sparse_gradient: True # Use sparse gradients for efficiency
 
 # Conventional Neural Network (CNN) parameters
@@ -29,9 +27,9 @@ conventional_nn_model:
   input_size: 32 # Input from SNN output_size
   architecture_type: 'MLF'
   mlp_layers:
-    # - units: 256
-    #   activation: 'ReLU'
-    #   dropout_rate: 0.3
+    - units: 256
+      activation: 'ReLU'
+      dropout_rate: 0.3
     - units: 128
       activation: 'ReLU'
       dropout_rate: 0.2

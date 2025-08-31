@@ -1,15 +1,7 @@
 import numpy as np 
-import torch
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 
-def to_numpy_squeezed(instance):
-    """   
-    Convert to NumPy arrays and remove extra dimensions
-    """
-    if isinstance(instance, torch.Tensor):
-        instance = instance.detach().cpu().numpy()
-    instance = np.squeeze(instance)
-    return instance
+from src.utils.common import to_numpy_squeezed
 
 def calculate_metrics(y_true, y_pred_binary, y_pred_proba=None):
     """

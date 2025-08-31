@@ -216,6 +216,7 @@ structure.txt
 # Unnecesary preprocessing output files
 data/processed/credit_card_fraud/
 data/processed/synthetic_data/
+experiments/
 
 *.csv
 *.html

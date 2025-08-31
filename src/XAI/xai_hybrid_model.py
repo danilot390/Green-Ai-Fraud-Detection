@@ -1,17 +1,13 @@
 import torch
-import torch.nn as nn
 import numpy as np
 import os
 import sys
 
-from src.data.preprocess import FraudDataset
 from src.models.hybrid_model import HybridModel
 from src.utils.config_parser import load_config
-from torch.utils.data import DataLoader
+from src.utils.common import get_device
 
 from lime.lime_tabular import LimeTabularExplainer
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 
 def explain_model_with_lime(model, explainer, data_point, feature_names, class_names, config):
     """
@@ -19,8 +15,12 @@ def explain_model_with_lime(model, explainer, data_point, feature_names, class_n
     """
 
     def predict_fn(data):
+        """ 
+        Prediction function to be used by LIME.
+        Expects data and returns probabilities.
+        """
         # Convert numpy array to PyTorch tensor
-        data_tensor = torch.from_numpy(data).float()
+        data_tensor = torch.from_numpy(data).float().to(device)
         
         # Reshape data to fit the hybrid model's expected input shape (Batch, TimeSteps, Features)
         num_timesteps = model.snn_time_steps
@@ -39,7 +39,8 @@ def explain_model_with_lime(model, explainer, data_point, feature_names, class_n
             probabilities = torch.cat([1 - probabilities, probabilities], dim=1)
 
         # Return the probabilities as a numpy array
-        return probabilities.cpu().numpy()
+        probabilities = probabilities.detach().cpu().numpy()
+        return probabilities
 
     # Generate the explanation
     print("Generating LIME explanation...")
@@ -79,12 +80,12 @@ if __name__ == '__main__':
 
 
     # Setup device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = get_device()
     print(f"Using device: {device}")
 
     # Load the trained model
     model_path = training_config['training_params']['model_save_path']+\
-                training_config['training_params']['best_model_hybrid_filename']
+                xai_config['xai_methods'].get('model', 'best_HybridModel.pth')
 
     if not os.path.exists(model_path):
         print(f"Error: Model file not found at {model_path}. Please train a model first.")
@@ -152,7 +153,6 @@ if __name__ == '__main__':
         rand_instance_idx = np.random.randint(0, len(X_test_tabular))
         print(f"No fraudulent instances found in the test set. Explaining a random instance: {rand_instance_idx}")
     
-    # instance_to_explain = X_test_tabular[instance_to_explain_idx]
     instance_to_explain = X_test_tabular[rand_instance_idx]
     
     # Generate and print the explanation for the selected instance 

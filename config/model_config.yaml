@@ -2,6 +2,7 @@
 # ===========================================================
 # This file contains the configuration for model parameters and settings  
 
+dataset_name: 'credit_card_fraud'
 # Spiking Neural Network (SNN) parameters
 snn_model:
   enabled: True 
@@ -13,11 +14,13 @@ snn_model:
     - units: 128
       activation: 'LIF'
       beta: 0.97 #Leakage parameter for LIF neurons
-    - units: 64
+      tou : 2.0 # Time constant for LIF neurons
+    - units: 32
       activation: 'LIF'
       beta: 0.95 #Leakage parameter for LIF neurons
+      tou : 2.0 # Time constant for LIF neurons
   output_size: 32
-  threshold: 0.5 # Threshold for firing neurons
+  threshold: 0.1 # Threshold for firing neurons
   sparse_gradient: True # Use sparse gradients for efficiency
 
 # Conventional Neural Network (CNN) parameters
@@ -27,9 +30,9 @@ conventional_nn_model:
   input_size: 32 # Input from SNN output_size
   architecture_type: 'MLF'
   mlp_layers:
-    - units: 256
-      activation: 'ReLU'
-      dropout_rate: 0.3
+    # - units: 256
+    #   activation: 'ReLU'
+    #   dropout_rate: 0.3
     - units: 128
       activation: 'ReLU'
       dropout_rate: 0.2
@@ -37,23 +40,8 @@ conventional_nn_model:
     - out_channels: 64
       kernel_size: 3
       padding: 1
-    - out_channels: 128
-      kernel_size: 3
-      padding: 1
+    # - out_channels: 128
+    #   kernel_size: 3
+    #   padding: 1
   output_size: 1 # Binary classification for fraud detection
   output_activation: 'Sigmoid' # For binary classification
-
-# Model compression parameters
-compression_params:
-  pruning:
-    enabled: True
-    method: 'magnitude' # Pruning based on weight magnitude
-    sparsity_target: 0.7 # Target sparsity level
-    pruning_schedule: 'polynomial' # Polynomial decay schedule for pruning
-    pruning_frequency: 100 # Prune every 100 epochs
-  quantization:
-    enabled: False
-    method: 'dynamic quantization' # Dynamic Quantization 
-    bit_width: 8 # Quantize to 8 bits
-    observer_type: 'minmax' # Min-max observer for quantization
-    quantization_scheme: 'symmetric' # Symmetric quantization

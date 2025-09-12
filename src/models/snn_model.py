@@ -19,16 +19,15 @@ class SNNModel(nn.Module):
         # Network Layers 
         # 1st Standard layer
         self.fc1 = nn.Linear(self.input_size, self.config['hidden_layers'][0]['units'])
-
         # 1st snn Layer - LIF neuron
         self.lif1 = snn.Leaky(beta=self.config['hidden_layers'][0]['beta'], spike_grad=spike_grad)
 
         # 2nd Layer
-        self.fc2 = nn.Linear(self.config['hidden_layers'][0]['units'], self.config['hidden_layers'][1]['units'])
-        self.lif2 = snn.Leaky(beta=self.config['hidden_layers'][1]['beta'], spike_grad=spike_grad)
+        self.fc2 = nn.Linear(self.config['hidden_layers'][0]['units'], self.config['hidden_layers'][-1]['units'])
+        self.lif2 = snn.Leaky(beta=self.config['hidden_layers'][-1]['beta'], spike_grad=spike_grad)
 
         # Output Layer
-        self.fc3 = nn.Linear(self.config['hidden_layers'][1]['units'], 1)
+        self.fc3 = nn.Linear(self.config['hidden_layers'][-1]['units'], 1)
 
     def forward(self, data):
         # Membrane for the LIF neurons

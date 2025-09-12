@@ -3,11 +3,12 @@ import numpy as np
 import random
 import os
 
-def set_seed(seed: int = 42) -> None:
+def set_seed(seed: int = 42, logger=None) -> None:
     """
     Sets the seed for reproducibility across different libraries.
     """
-    print(f"Setting random seed to {seed}...")
+    if not logger == None:
+        logger.info(f'Setting random seed to ')
     
     # Python and NumPy seeds
     random.seed(seed)

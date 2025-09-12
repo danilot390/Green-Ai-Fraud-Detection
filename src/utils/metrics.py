@@ -1,7 +1,10 @@
 import numpy as np 
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+import torch, time
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, 
+    average_precision_score, confusion_matrix, f1_score, roc_auc_score)
 
-from src.utils.common import to_numpy_squeezed
+from src.utils.common import to_int_array
 
 def calculate_metrics(y_true, y_pred_binary, y_pred_proba=None):
     """
@@ -9,12 +12,8 @@ def calculate_metrics(y_true, y_pred_binary, y_pred_proba=None):
     """
 
     #  Convert to NumPy arrays and remove extra dimensions
-    y_true = to_numpy_squeezed(y_true)
-    y_pred_binary = to_numpy_squeezed(y_pred_binary)
-
-    # Explicitly cast to integer type
-    y_true = y_true.astype(int)
-    y_pred_binary = y_pred_binary.astype(int)
+    y_true = to_int_array(y_true)
+    y_pred_binary = to_int_array(y_pred_binary)
 
     # Calculate standard metrics.
     accuracy = accuracy_score(y_true, y_pred_binary)
@@ -31,13 +30,71 @@ def calculate_metrics(y_true, y_pred_binary, y_pred_proba=None):
 
     # Calculate AUC-ROC if predicted probalities are provided
     if y_pred_proba is not None and len(np.unique(y_true))>1:
-        y_pred_proba = to_numpy_squeezed(y_pred_proba)
+        y_pred_proba = np.asarray(y_pred_proba).squeeze()
+
         try:
-             auc_roc = roc_auc_score(y_true, y_pred_proba)
-             metrics['auc_roc'] = auc_roc
+             metrics['auc_roc'] = roc_auc_score(y_true, y_pred_proba)
         except ValueError:
             metrics['auc_roc']= np.nan
+
+        try:
+            metrics['pr_auc'] = average_precision_score(y_true, y_pred_proba)
+        except:
+            metrics['pr_auc'] = np.nan
+
     else:
         metrics['auc_roc']= np.nan
+        metrics['pr_auc'] = np.n
+
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary, labels=[0, 1]).ravel()
+    metrics.update({
+        "true_negatives" : float(tn), 
+        "false_positives" : float(fp), 
+        "false_negatives" : float(fn), 
+        "true_positives" : float(tp)
+    })
 
     return metrics
+
+def evaluate_model(model, dataloader, device, threshold=0.5):
+    """
+    Run model on dataloader and return metrics via Calculate Metrics function.
+    """
+    model.eval()
+    all_probs, all_targets = [], []
+    
+    with torch.no_grad():
+        for data, target in dataloader:
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+
+            if output.dim() == 3:
+                output = output[:, -1, :] 
+
+            if output.shape[1] == 1:
+                probs = torch.sigmoid(output).squeeze()
+            else:
+                probs = torch.softmax(output, dim=1)[:, 1]
+
+            all_probs.extend(probs.cpu().numpy())
+            if target.dim() == 3:
+                target = target[:,-1,0]
+                
+            all_targets.extend(target.view(-1).cpu().numpy())
+    
+    all_probs = np.array(all_probs)
+    all_targets = np.array(all_targets)
+    y_pred = (all_probs >= threshold).astype(int)
+    
+    return calculate_metrics(all_targets, y_pred, all_probs)
+
+def bench_mark_inference(model, dataloader, device, num_runs=3):
+    """
+    Benchmarks the average inference time of the model over a specified number of runs.
+    """
+    start = time.time()
+    
+    for _ in range(num_runs):
+        evaluate_model(model, dataloader, device)
+    elapsed = (time.time() - start) / num_runs
+    return elapsed

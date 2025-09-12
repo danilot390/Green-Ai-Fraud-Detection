@@ -18,9 +18,27 @@ training_params:
   gradient_clipping:
     enabled: True
     clip_value: 1.0 # Clip gradients to prevent exploding gradients
-  device: "mps" # Options: "cpu", "cuda", "mps" (for Apple Silicon Macs)
+  device: "cpu" # Options: "cpu", "cuda", "mps" (for Apple Silicon Macs)
   num_workers: 4 # For data loading
   seed: 42 # Global random seed for reproducibility
   log_interval: 100 # Log progress every N batches/steps
   model_save_path: "models/checkpoints/"
   best_model_hybrid_filename: "best_hybrid_fraud_detector.pth"
+
+compression_params:
+  pruning:
+    enabled: True
+    method: "l1_unstructured"   # or "random_unstructured", "ln_structured"
+    amount: 0.3
+    schedule: "gradual"         # "one_shot" or "gradual"
+    start_epoch: 5
+    end_epoch: 20
+    frequency: 2
+
+  quantization:
+    enabled: False
+    method: "qat"               # QAT only (best practice for training-time)
+    bit_width: 8
+    observer_type: "minmax"     # "minmax" or "moving_average_minmax"
+    quantization_scheme: "symmetric"
+

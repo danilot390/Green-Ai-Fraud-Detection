@@ -1,82 +1,25 @@
 import torch
-from torch.utils.data import DataLoader, WeightedRandomSampler
 import torch.nn as nn
 from torch.optim import Adam
 import os
 
-from src.data.preprocess import FraudDataset 
-from src.models.snn_model import SNNModel 
-from src.models.conventional_model import ConventionalNN
-from src.models.hybrid_model import HybridModel
+from src.training.compression import prepare_qat_model, convert_qat_model, apply_pruning, remove_pruning
 from src.utils.config_parser import load_config
 from src.utils.common import get_device
+from src.utils.model_utils import load_model
 from src.utils.metrics import calculate_metrics
 from src.utils.logger import setup_logger
-
-def get_dataloaders(data_config, training_config, device, dataset_name="credit_card_fraud",is_snn_model=False, is_hybrid_model=False, logger=None):
-    """
-    Loads preprocessed tensors and creates PyTorch DataLoaders with WeightedRandomSampler if imbalance exists.
-    Handles both non-sequential (Conventional NN) and sequential (Spiking NN and Hybrid) data formats.
-    """
-  
-    processed_dir = os.path.join(
-        data_config['processed_data_paths'].get('credit_card_fraud_path')\
-        if dataset_name == "credit_card_fraud" \
-        else data_config['processed_data_paths'].get('synthetic_data_path'))
-    
-    map_location = None
-    # Load tensors
-    X_train = torch.load(os.path.join(processed_dir, 'X_train.pt'), map_location=map_location)
-    y_train = torch.load(os.path.join(processed_dir, 'y_train.pt'), map_location=map_location)
-    X_val = torch.load(os.path.join(processed_dir, 'X_val.pt'), map_location=map_location)
-    y_val = torch.load(os.path.join(processed_dir, 'y_val.pt'), map_location=map_location)
-    X_test = torch.load(os.path.join(processed_dir, 'X_test.pt'), map_location=map_location)
-    y_test = torch.load(os.path.join(processed_dir, 'y_test.pt'), map_location=map_location)
-    logger.info(f"Data loaded from {processed_dir} ...")
-
-    # Determine batch size, num_workers, sequence_length, and time_steps based on settings
-    # For SNN or Hybrid models to reshape the data
-    batch_size = training_config['training_params'].get('batch_size', 0)
-    num_workers = training_config['training_params'].get('num_workers', 0)
-    sequence_length =data_config['preprocessing_params'].get('sequence_length') if is_snn_model else None
-    time_steps = data_config['preprocessing_params']['snn_input_encoding']['time_steps'] if is_snn_model else None
-
-    # Create Datasets and DataLoaders
-    train_dataset = FraudDataset(X_train, y_train, sequence_length, time_steps)
-    val_dataset = FraudDataset(X_val, y_val, sequence_length, time_steps)
-    test_dataset = FraudDataset(X_test, y_test, sequence_length, time_steps)
-
-    # Extract labels for WeightedRandomSampler
-    train_labels = torch.tensor([item[1][-1].item() for item in train_dataset])if len(train_dataset[0][1].shape) > 1 else y_train
-    
-    # WeightedRandomSampler for class imbalance handling
-    if is_hybrid_model or is_snn_model:
-        class_counts = torch.bincount(train_labels.long())
-        if len(class_counts) > 1:
-            class_weights = 1.0 / class_counts.float()
-            sample_weights = class_weights[train_labels.long()]
-            sampler = WeightedRandomSampler(
-                weights=sample_weights,
-                num_samples=len(train_dataset),
-                replacement=True
-            )
-            train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers)
-            logger.info("Handle class imbalance with WeightedRandomSampler.")
-        else:
-            logger.warning("Warning: Only one class found in training data. Using standard DataLoader.")
-            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    else:
-        logger.info("Using standard DataLoader.")
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-        
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    
-    logger.info("DataLoaders created.")
-    return train_loader, val_loader, test_loader, train_labels.to(device)
-
+from src.data.dataloaders import get_dataloaders
+from src.pipeline.setup import setup_experiment
 class Trainer:
-    def __init__(self, model,criterion, optimizer, train_loader, val_loader, device, config):
+    """
+    Handles the full training process for different types of nodels, including Conventional Neural Networks (NNs)
+    Spiking Neural Networks (SNNs) and Hybrid models that combine both.
+
+    Class manages the training loop, validation, and support compress techniques including pruning & quantization-
+    aware training (QAT), also saveing the best-performing model by F1 Score.
+    """
+    def __init__(self, model,criterion, optimizer, train_loader, val_loader, device, config, quant=False):
         self.model = model
         self.criterion = criterion
         self.optimizer = optimizer
@@ -84,7 +27,7 @@ class Trainer:
         self.val_loader = val_loader
         self.device = device
         self.training_config = config
-
+        self.quant = quant
 
     def train_epoch(self):
         """
@@ -103,7 +46,7 @@ class Trainer:
             output = self.model(data)
 
             # Reshape target to match hte model's output shape
-            if isinstance(self.model, HybridModel):
+            if self.model.model_name == 'HybridModel':
                 target = target[:, -1, :].reshape(output.shape)
 
             loss = self.criterion(output, target)
@@ -132,7 +75,7 @@ class Trainer:
                 output = self.model(data)
 
                 # Reshape target to match hte model's output shape
-                if isinstance(self.model, HybridModel):
+                if self.model.model_name == 'HybridModel':
                     target = target[:, -1, :].reshape(output.shape)
 
                 loss = self.criterion(output, target)
@@ -159,40 +102,49 @@ class Trainer:
         """
         num_epochs = self.training_config['training_params'].get('epochs', 10)
         model_save_path = self.training_config['training_params'].get('model_save_path', './model_checkpoints')
-        model_name = self.model.model_name
+        model_name = "QAT_"+self.model.model_name if self.quant else self.model.model_name
         best_val_f1 = -1.0 # Initialize with a value lower than any possible F1 score
+        pruning_config = self.training_config['compression_params'].get("pruning", {})
+        quant_config = self.training_config['compression_params'].get("quantization", {})
+        
+        # Prepare model for QAT before training starts
+        if quant_config.get("enabled", False):
+            self.model = prepare_qat_model(self.model, quant_config, logger)
 
+        best_val_f1 = -1.0
+        model_save_path = self.training_config['training_params'].get('model_save_path', './model_checkpoints')
         os.makedirs(model_save_path, exist_ok=True)
-        logger.info(f"{model_name} training for {num_epochs} epochs on {self.device} ...")
 
         for epoch in range(num_epochs):
             train_loss = self.train_epoch()
+
+            # Pruning section
+            if pruning_config.get("enabled", False):
+                logger.info(f'Pruning technique applied successfully')
+                self.model = apply_pruning(self.model, epoch, pruning_config, logger)
+
             val_loss, metrics = self.validate_epoch()
-            
-            logger.info(f"Epoch [{epoch+1}/{num_epochs}] - "
-                  f"Train Loss: {train_loss:.4f}, "
-                  f"Val Loss: {val_loss:.4f}, "
-                  f"Val F1 Score: {metrics['f1_score']:.4f}")
-            
-            from numpy import nan as NAN
-            if metrics['auc_roc'] is not NAN:
-                logger.info(f"Val AUC-ROC Score: {metrics['auc_roc']:.4f}")
-                
-            # Save the best model based on F1-score
+            logger.info(f"Epoch [{epoch+1}/{num_epochs}] - Train Loss: {train_loss:.4f}, "
+                        f"Val Loss: {val_loss:.4f}, F1: {metrics['f1_score']:.4f}")
+
             if metrics['f1_score'] > best_val_f1:
                 best_val_f1 = metrics['f1_score']
                 torch.save(self.model.state_dict(), os.path.join(model_save_path, f'best_{model_name}.pth'))
                 logger.info(f"New best model saved with F1-score: {best_val_f1:.4f}")
 
-        logger.info("Training finished.")
+        # Cleanup pruning masks
+        if pruning_config.get("enabled", False):
+            self.model = remove_pruning(self.model, logger)
+
+        # Convert QAT model after training
+        if quant_config.get("enabled", False):
+            self.model = convert_qat_model(self.model, quant_config, logger)
+
+        logger.info("Training finished with compression applied.")
 
 if __name__ == '__main__':
-    # Load configuration globally 
-    config={
-        'training_config' : load_config('config/training_config.yaml'),
-        'data_config' : load_config('config/data_config.yaml'),
-        'model_config' : load_config('config/model_config.yaml'),
-    }
+    # Load configuration 
+    data_config, model_config, training_config, _, logger, experiment_dir, plots_dir = setup_experiment(log_file_e=False)
     
     # Setup Logger
     logger = setup_logger()
@@ -202,49 +154,30 @@ if __name__ == '__main__':
     logger.info(f"Using device: {device}")
 
     # Check which model use
-    is_snn_model = config['model_config']['snn_model']['enabled']
-    is_convetional_model = config['model_config']['conventional_nn_model']['enabled']
-    is_hybrid_model = is_snn_model and is_convetional_model
-    
+    is_snn_model = model_config['snn_model'].get('enabled', False)
     
     # Load DataLoaders
-    # You would have previously run make_dataset.py to generate these
-    train_loader, val_loader, test_loader, y_train = get_dataloaders(
-        dataset_name="credit_card_fraud",
-        data_config=config['data_config'],
-        training_config=config['training_config'],
-        device=device,
-        is_snn_model=is_snn_model,
-        is_hybrid_model=is_hybrid_model,
-        logger=logger,
-        )
+    train_loader, val_loader, test_loader, y_train = get_dataloaders(data_config, training_config, device,logger=logger)
 
     # Initialize Model
-    # Handle the different models from config
     input_size = train_loader.dataset.features.shape[1] 
-    time_steps = config['data_config']['preprocessing_params']['snn_input_encoding']['time_steps'] if is_snn_model else None
-
-    # This part requires a bit of logic based on your model_config
-    logger.info('=== Neural Network ===')
-    if is_hybrid_model:
-        model = HybridModel(snn_input_size=input_size, snn_time_steps=time_steps, config=config['model_config']).to(device)
-    elif is_snn_model:
-        model = SNNModel(input_size=input_size, time_steps=time_steps, config=config['model_config']).to(device)
-    elif is_convetional_model:
-        model = ConventionalNN(input_size=input_size, config=config['model_config']).to(device)
-    else:
-        logger.error("Invalid model configuration. At least one model must be enabled.")
-        raise ValueError("INvalid model configuration. At least one model must be enabled.")
-
+    time_steps = data_config['preprocessing_params']['snn_input_encoding']['time_steps'] if is_snn_model else None
+    
+    # Load model based on configs
+    logger.info('=== Starting ===')
+    model = load_model(input_size, time_steps, device, logger, model_config)
+    
     # Loss with pos_weight
     num_pos = (y_train == 1).sum().item()
     num_neg = (y_train == 0).sum().item()
     pos_weight = torch.tensor([num_neg / max(1, num_pos)], device=device, dtype=torch.float)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
-    optimizer = Adam(model.parameters(), lr=config['training_config']['training_params']['learning_rate'])
+    optimizer = Adam(model.parameters(), lr=training_config['training_params']['learning_rate'])
     
     # Initialize and Run Trainer
-    trainer = Trainer(model, criterion, optimizer, train_loader, val_loader, device, config['training_config'])
+    trainer = Trainer(model, criterion, optimizer, train_loader, val_loader, device, training_config)
     trainer.run(logger=logger)
+
+
 

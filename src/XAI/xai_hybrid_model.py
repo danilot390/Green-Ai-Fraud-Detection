@@ -6,10 +6,11 @@ import sys
 from src.models.hybrid_model import HybridModel
 from src.utils.config_parser import load_config
 from src.utils.common import get_device
+from src.utils.logger import setup_logger
 
 from lime.lime_tabular import LimeTabularExplainer
 
-def explain_model_with_lime(model, explainer, data_point, feature_names, class_names, config):
+def explain_model_with_lime(model, explainer, data_point, class_names, config,device, logger, path_dir='lime_explanation.html'):
     """
     Generates a LIME explanation for a single data point.
     """
@@ -43,7 +44,6 @@ def explain_model_with_lime(model, explainer, data_point, feature_names, class_n
         return probabilities
 
     # Generate the explanation
-    print("Generating LIME explanation...")
     explanation = explainer.explain_instance(
         data_row=data_point,
         predict_fn=predict_fn,
@@ -53,23 +53,23 @@ def explain_model_with_lime(model, explainer, data_point, feature_names, class_n
 
     # Predicted class
     predicted_class = np.argmax(explanation.predict_proba)
-    print(f"Predicted class for the instance: {class_names[predicted_class]}")
+    logger.info(f"Predicted class for the instance: `{class_names[predicted_class]}`")
     
     # Print the explanation for the user
-    print("\n--- LIME Explanation for the selected instance ---")
-    print(f"Original prediction: {explanation.class_names[predicted_class]} "
-          f"with probability {explanation.predict_proba[predicted_class]}")
+    logger.info("LIME Explanation for the selected instance")
+    logger.info(f"Original prediction: `{explanation.class_names[predicted_class]}` "
+          f"with probability `{explanation.predict_proba[predicted_class]}`")
 
     # Get the top features contributing to the prediction
-    print("\nTop features contributing to the prediction:")
+    logger.info("Top features contributing to the prediction:")
     sorted_features = sorted(explanation.as_list(), key=lambda x: abs(x[1]), reverse=True)
     for feature_id, weight in sorted_features:
-        print(f"  - {feature_id}: {weight:.4f}")
+        logger.info(f"  - {feature_id}: {weight:.4f}")
 
     # Save explanation as HTML
     if config.get('save_html', False):
-        explanation.save_to_file('lime_explanation.html')
-        print("\nLIME explanation saved to 'lime_explanation.html'.")
+        explanation.save_to_file(path_dir)
+        logger.info(f"LIME explanation saved to `{path_dir}`.")
 
 if __name__ == '__main__':
     # Load configuration files
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     data_config = load_config('config/data_config.yaml')
     model_config = load_config('config/model_config.yaml')
     xai_config = load_config('config/xai_config.yaml')
-
+    logger = setup_logger()
 
     # Setup device
     device = get_device()
@@ -156,4 +156,4 @@ if __name__ == '__main__':
     instance_to_explain = X_test_tabular[rand_instance_idx]
     
     # Generate and print the explanation for the selected instance 
-    explain_model_with_lime(model, explainer, instance_to_explain, feature_names, class_names, xai_config['xai_methods']['lime'])
+    explain_model_with_lime(model, explainer, instance_to_explain, class_names, xai_config['xai_methods']['lime'], device, logger)

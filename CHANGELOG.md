@@ -4,9 +4,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2025-09-13
+([compare]())
+### Added
+- Integrated XAI into the main pipeline with the LIME.
+- `src/pipeline/xai.py`: 
+  * Added `run_xai` function to generate LIME explanations for a specified number of test cases. Fraudulent transactions are prioritized if present. Explanations are saved as HTML files.
+
+### Changed
+- `README.md`: Updated with additional project information.
+- `config/experiments_config.yaml`: Added the `xai_cases` feature.
+- `src/XAI/xai_hybrid_model.py`: Updated `explain_model_with_lime` to handle logging and save results to specific files.
+- `src/data/make_dataset.py`: Improved folder handling for dataset storage.
+- `src/pipeline/evaluation.py`: Fixed FLOPs measurement for conventional models.
+- `src/pipeline/green_ai.py`: Integrated XAI into the pipeline.
+- `src/pipeline/tracking.py`: Improved handling of storage.
+- `src/training/trainer.py`: Fixed prefixes for identifying compression techniques in models.
+
+
 ## [0.1.0] - 2025-09-12
 ([commit 97a7b1f2039d270639965ad5bc4c88806fb07007](https://github.com/danilot390/Green-Ai-Fraud-Detection/commit/97a7b1f2039d270639965ad5bc4c88806fb07007))
-qq
+
 ### Added
 - Applied pruning and quantization-aware training (QAT) in the training pipeline.
 - Modularized main pipeline into dedicated modules: model, training, evaluation, tracking, setup.

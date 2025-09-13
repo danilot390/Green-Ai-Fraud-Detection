@@ -3,7 +3,6 @@ import torch
 import joblib 
 
 from src.data.preprocess import get_preprocessed_data, PROCESSED_DATA_PATH
-from src.utils.config_parser import load_config
 
 if __name__ == '__main__':
     print("Running make dataset...")
@@ -11,6 +10,7 @@ if __name__ == '__main__':
     print('\n --- Processing Credit Card Fraud Dataset ---')
     try:
         ccf_processed_dir = PROCESSED_DATA_PATH['credit_card_fraud_path']
+        os.makedirs(ccf_processed_dir, exist_ok=True)
 
         X_train, y_train, X_val, y_val, X_test, y_test, scaler, feature_names = \
             get_preprocessed_data(dataset_name="credit_card_fraud", target_column="Class")
@@ -38,7 +38,8 @@ if __name__ == '__main__':
     print('\n --- Processing Synthetic Dataset ---')
     try:
         sd_processed_dir = PROCESSED_DATA_PATH['synthetic_data_path']
-
+        os.makedirs(sd_processed_dir, exist_ok=True)
+        
         X_train, y_train, X_val, y_val, X_test, y_test, scaler, feature_names = \
             get_preprocessed_data(dataset_name="synthetic_data", target_column="isFraud")
         

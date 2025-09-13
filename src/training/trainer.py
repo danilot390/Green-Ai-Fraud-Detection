@@ -102,10 +102,20 @@ class Trainer:
         """
         num_epochs = self.training_config['training_params'].get('epochs', 10)
         model_save_path = self.training_config['training_params'].get('model_save_path', './model_checkpoints')
-        model_name = "QAT_"+self.model.model_name if self.quant else self.model.model_name
+        
         best_val_f1 = -1.0 # Initialize with a value lower than any possible F1 score
         pruning_config = self.training_config['compression_params'].get("pruning", {})
         quant_config = self.training_config['compression_params'].get("quantization", {})
+        prefixes = []
+        
+        model_name = self.model.model_name
+        if quant_config.get("enabled", False):
+            prefixes.append("QAT")
+        if pruning_config.get("enabled", False):
+            prefixes.append("Pruning")
+
+        model_name = "_".join(prefixes + [model_name])
+
         
         # Prepare model for QAT before training starts
         if quant_config.get("enabled", False):

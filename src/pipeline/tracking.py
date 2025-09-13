@@ -1,4 +1,5 @@
 from codecarbon import EmissionsTracker
+import os
 
 def start_tracker(experiment_config, experiment_dir, logger):
     """
@@ -11,10 +12,12 @@ def start_tracker(experiment_config, experiment_dir, logger):
         logger.warning("Energy consumption tracking is disabled in the configuration.")
         return None
     else:
+        emssion_path = os.path.join(experiment_dir,'energy_Consumption')
+        os.makedirs(emssion_path, exist_ok=True)
         if experiment_config['tracker'].get('type', 'CodeCarbon') == 'CodeCarbon':
             tracker = EmissionsTracker(
                 project_name=experiment_config['tracker'].get('project', 'Fraud_Detection'),
-                output_dir=experiment_dir, 
+                output_dir=emssion_path, 
                 log_level='error',
                 )
             tracker.start()

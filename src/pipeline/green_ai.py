@@ -3,6 +3,7 @@ from src.pipeline.tracking import start_tracker, stop_tracker
 from src.pipeline.model import setup_model, finalize_model
 from src.pipeline.training import run_training
 from src.pipeline.evaluation import run_evaluation
+from src.pipeline.xai import run_xai
 from src.utils.reproducibility import set_seed
 from src.utils.common import get_device, save_to_json
 from src.data.dataloaders import get_dataloaders
@@ -44,6 +45,10 @@ def main():
     # Evaluate
     run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_config, logger)
     stop_tracker(tracker, logger)
+
+    # XAI for Hybrid model
+    if model.model_name == 'HybridModel':
+        run_xai(model, experiment_config['experiment'].get('dataset_name'), experiment_config['experiment'].get('xai_cases', 1), experiment_dir, logger, device)
     
     # Save Hyperparameters
     params = {

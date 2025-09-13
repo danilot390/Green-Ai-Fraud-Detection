@@ -51,7 +51,7 @@ def run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_confi
     if is_hybrid:
         flops = calculate_flops(model, real_input)
     elif model_config['conventional_nn_model'].get('enabled', False):
-        flops, _ = get_model_complexity_info(model, input_size, as_strings=False, print_per_layer_stat=False, verbose=False)
+        flops, _ = get_model_complexity_info(model, tuple(input_size), as_strings=False, print_per_layer_stat=False, verbose=False)
     else:
         flops = np.nan
         logger.warning('Could not calculate FLOPs. Unsupported model type.')

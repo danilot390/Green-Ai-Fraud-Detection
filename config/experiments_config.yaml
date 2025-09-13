@@ -8,6 +8,7 @@ experiment:
   log_level: "INFO" # Options: "DEBUG", "INFO", "WARNING", "ERROR"
   experiment_dir: "experiments/"
   dataset_name: "credit_card_fraud"
+  xai_cases : 3
 
 tracker: 
   enabled: True

@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.1] - 2025-09-13
-([compare]())
+([commit b0c8252](https://github.com/danilot390/Green-Ai-Fraud-Detection/commit/b0c82528bb3cec3503a3d1458fcb9c4540e1eced))
 ### Added
 - Integrated XAI into the main pipeline with the LIME.
 - `src/pipeline/xai.py`: 

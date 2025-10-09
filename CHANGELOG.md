@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.2] - 2025-10-09
-()
+([commit 1b5873c](https://github.com/danilot390/Green-Ai-Fraud-Detection/commit/1b5873cc3e57027499e3a3931ba80046c4d5eb01))
 ### Added
 - New baseline model to compare with Green Pipeline in terms of performance and sustainability.
 - `src/models/xbost_cnn_bilstm.py` with `XBoost_CNN_BiLSTM` hybrid model combining CNN, BiLSTM, and MLP architectures, with optional integration of XGBoost-derived embeddings for tabular data.

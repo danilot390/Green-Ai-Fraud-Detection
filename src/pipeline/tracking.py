@@ -31,6 +31,7 @@ def stop_tracker(tracker, logger):
     if not tracker == None:
         tracker.stop()
         logger.info('Tracker stopped.')
+        logger.info(f'Emissions kg co2e: {tracker.final_emissions}')
 
         return tracker.final_emissions
     

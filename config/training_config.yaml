@@ -1,24 +1,26 @@
 # Training Configuration
 # --------------------
-
 training_params:
-  epochs: 5
+  epochs: 20
+  
   batch_size: 256
   learning_rate: 0.001
   optimizer: "Adam" # Options: "Adam", "SGD", "Adagrad"
-  loss_function: "BCEWithLogitsLoss" # For binary classification
-  # If imbalance is handled via class weights in loss function:
-  use_class_weights: True
+  loss_config:
+    type: 'BCEWithLogitsLoss' # BCEWithLogitsLoss - FocalLoss
+    alpha: 0.25
+    gamma: 2.0
+  use_class_weights: False
   class_weights_scale: 10.0 # Factor to scale minority class weight
   early_stopping:
     enabled: True
-    patience: 10 # Number of epochs with no improvement before stopping
+    patience: 8 # Number of epochs with no improvement before stopping
     min_delta: 0.0001 # Minimum change to qualify as an improvement
     monitor: "val_f1_score" # Metric to monitor for early stopping
   gradient_clipping:
     enabled: True
     clip_value: 1.0 # Clip gradients to prevent exploding gradients
-  device: "cpu" # Options: "cpu", "cuda", "mps" (for Apple Silicon Macs)
+  device: "cuda" # Options: "cpu", "cuda", "mps" (for Apple Silicon Macs)
   num_workers: 4 # For data loading
   seed: 42 # Global random seed for reproducibility
   log_interval: 100 # Log progress every N batches/steps
@@ -27,18 +29,20 @@ training_params:
 
 compression_params:
   pruning:
+    tolerance: 0.004
     enabled: True
-    method: "l1_unstructured"   # or "random_unstructured", "ln_structured"
-    amount: 0.3
-    schedule: "gradual"         # "one_shot" or "gradual"
-    start_epoch: 5
-    end_epoch: 20
-    frequency: 2
+    method: "l1_unstructured"   
+    amount: 0.25
+    schedule: "gradual"         
+    start_epoch: 3
+    end_epoch: 6
+    frequency: 1
 
   quantization:
+    tolerance: 0.004
     enabled: False
-    method: "qat"               # QAT only (best practice for training-time)
-    bit_width: 8
-    observer_type: "minmax"     # "minmax" or "moving_average_minmax"
-    quantization_scheme: "symmetric"
+    method: "qat"               
+    start_epoch: 8
+    observer_type: "moving_average_minmax" # "minmax" or "moving_average_minmax"
+    quantization_scheme: "non-symmetric"
 

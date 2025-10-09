@@ -19,7 +19,7 @@ def confusion_matrix_plot(all_y_test, y_pred,artifact_path):
     plt.xlabel('Predicted label')
     plt.tight_layout()
     plt.savefig(f'{artifact_path}/confusion_matrix.png') if artifact_path else None
-    plt.show()
+    #plt.show()
 
 def roc_curve_plot(all_y_test, all_preds_proba, final_metrics, artifact_path):
     """
@@ -30,7 +30,7 @@ def roc_curve_plot(all_y_test, all_preds_proba, final_metrics, artifact_path):
     RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=final_metrics['auc_roc']).plot()
     plt.title('ROC Curve')
     plt.savefig(f'{artifact_path}/roc_curve.png') if artifact_path else None
-    plt.show()
+    #plt.show()
 
 def plotting(all_y_test, all_preds_proba, final_metrics, artifact_path=False):
     """

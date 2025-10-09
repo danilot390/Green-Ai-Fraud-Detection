@@ -11,16 +11,16 @@ snn_model:
   input_size: 29 # Number of input features
   time_steps: 50 
   hidden_layers: 
-    - units: 128
-      activation: 'LIF'
-      beta: 0.97 #Leakage parameter for LIF neurons
-      tou : 2.0 # Time constant for LIF neurons
+    #- units: 128
+    #  activation: 'LIF'
+    #  beta: 0.97 #Leakage parameter for LIF neurons
+    #  tou : 2.0 # Time constant for LIF neurons
     - units: 32
       activation: 'LIF'
       beta: 0.95 #Leakage parameter for LIF neurons
       tou : 2.0 # Time constant for LIF neurons
   output_size: 32
-  threshold: 0.1 # Threshold for firing neurons
+  threshold: 0.87 # Threshold for firing neurons
   sparse_gradient: True # Use sparse gradients for efficiency
 
 # Conventional Neural Network (CNN) parameters
@@ -28,20 +28,49 @@ conventional_nn_model:
   mode_name: 'Compressed Fraud Detector CNN'
   enabled: True
   input_size: 32 # Input from SNN output_size
-  architecture_type: 'MLF'
+  architecture_type: 'MLP'
   mlp_layers:
-    # - units: 256
-    #   activation: 'ReLU'
-    #   dropout_rate: 0.3
     - units: 128
-      activation: 'ReLU'
+      activation: "ReLU"
       dropout_rate: 0.2
-  cnn_layers:
-    - out_channels: 64
-      kernel_size: 3
-      padding: 1
+      batchnorm: False
     # - out_channels: 128
     #   kernel_size: 3
     #   padding: 1
   output_size: 1 # Binary classification for fraud detection
   output_activation: 'Sigmoid' # For binary classification
+xgb_cnn_bilstm_model:
+  mode_name: 'XGBoost + CNN + BiLSTM Fraud Detector'
+  enabled: False
+  input_size: 32                  # input features
+  cnn_config:
+    cnn_layers:
+      - out_channels: 32
+        kernel_size: 3
+        padding: 1
+        pool_size: 2
+        dropout_rate: 0.1
+      - out_channels: 64
+        kernel_size: 3
+        padding: 1
+        pool_size: 2
+        dropout_rate: 0.1
+  lstm_config:
+    hidden_size: 64
+    num_layers: 1
+    bidirectional: True
+    dropout: 0.2
+  mlp_config:
+    mlp_layers:
+      - units: 256
+        activation: 'ReLU'
+        dropout_rate: 0.3
+        batchnorm: True
+      - units: 128
+        activation: 'ReLU'
+        dropout_rate: 0.2
+        batchnorm: True
+  threshold_tuning:
+    enabled: True
+    search_range: [0.80, 0.95, 0.01]  # search thresholds from 0.80 to 0.95
+

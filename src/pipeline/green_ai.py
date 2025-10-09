@@ -1,5 +1,5 @@
 from src.pipeline.setup import setup_experiment
-from src.pipeline.tracking import start_tracker, stop_tracker
+from src.pipeline.tracking import start_tracker
 from src.pipeline.model import setup_model, finalize_model
 from src.pipeline.training import run_training
 from src.pipeline.evaluation import run_evaluation
@@ -39,13 +39,12 @@ def main():
     model, criterion, optimizer, qat_enabled, is_hybrid = setup_model(input_size, time_steps, device, model_config, training_config, y_train, logger)
 
     # Train
-    model = run_training(model, criterion, optimizer, input_size, time_steps, train_loader, val_loader, device, training_config, logger, qat_enabled)
-    model = finalize_model(model, qat_enabled, model_config, logger)
+    model = run_training(model, criterion, optimizer, train_loader, val_loader, device, training_config, logger, qat_enabled)
+    #model = finalize_model(model, qat_enabled, training_config, logger)
     
     # Evaluate
-    run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_config, logger)
-    stop_tracker(tracker, logger)
-
+    run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_config, logger, tracker)
+    
     # XAI for Hybrid model
     if model.model_name == 'HybridModel':
         run_xai(model, experiment_config['experiment'].get('dataset_name'), experiment_config['experiment'].get('xai_cases', 1), experiment_dir, logger, device)

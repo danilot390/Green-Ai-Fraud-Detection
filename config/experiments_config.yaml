@@ -1,14 +1,14 @@
 # Experiment Management Configuration
 # -----------------------------------
 
-experiment:
+experiment: 
   name: "Hybrid_SNN_Compression_Fraud_V1"
   seed: 42
   run_id: "auto" # Or provide a specific ID for the run (e.g., timestamp)
   log_level: "INFO" # Options: "DEBUG", "INFO", "WARNING", "ERROR"
   experiment_dir: "experiments/"
-  dataset_name: "credit_card_fraud"
-  xai_cases : 3
+  dataset_name: "credit_card_fraud" # Options: credit_card_fraud & synthetic_data
+  xai_cases : 25
 
 tracker: 
   enabled: True

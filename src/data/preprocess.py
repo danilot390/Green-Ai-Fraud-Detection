@@ -324,7 +324,7 @@ if __name__ == "__main__":
     X_train, y_train, X_val, y_val, X_test, y_test, scaler, feature_names = \
        get_preprocessed_data(dataset_name="synthetic_data", target_column="isFraud") 
 
-    # print("\nSynthetic Financial DataLoaders created:")
-    # print(f"First train batch features shape: {next(iter(synthetic_train_loader))[0].shape}")
-    # print(f"First train batch labels shape: {next(iter(synthetic_train_loader))[1].shape}")
-    # print(f"Number of features: {len(synthetic_feature_names)}")
+    print("\nSynthetic Financial DataLoaders created:")
+    print(f"First train batch features shape: {next(iter(X_val)).shape}")
+    print(f"First train batch labels shape: {next(iter(y_val)).shape}")
+    print(f"Number of features: {len(feature_names)}")

@@ -8,7 +8,7 @@ def set_seed(seed: int = 42, logger=None) -> None:
     Sets the seed for reproducibility across different libraries.
     """
     if not logger == None:
-        logger.info(f'Setting random seed to ')
+        logger.info(f'Setting random seed to {seed}')
     
     # Python and NumPy seeds
     random.seed(seed)

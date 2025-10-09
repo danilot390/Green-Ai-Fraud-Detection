@@ -6,7 +6,7 @@ import os
 from src.training.compression import prepare_qat_model, convert_qat_model, apply_pruning, remove_pruning
 from src.utils.config_parser import load_config
 from src.utils.common import get_device
-from src.utils.model_utils import load_model
+from src.utils.model_utils import load_model, get_best_model
 from src.utils.metrics import calculate_metrics
 from src.utils.logger import setup_logger
 from src.data.dataloaders import get_dataloaders
@@ -19,7 +19,7 @@ class Trainer:
     Class manages the training loop, validation, and support compress techniques including pruning & quantization-
     aware training (QAT), also saveing the best-performing model by F1 Score.
     """
-    def __init__(self, model,criterion, optimizer, train_loader, val_loader, device, config, quant=False):
+    def __init__(self, model,criterion, optimizer, train_loader, val_loader, device, config, qat=False):
         self.model = model
         self.criterion = criterion
         self.optimizer = optimizer
@@ -27,7 +27,7 @@ class Trainer:
         self.val_loader = val_loader
         self.device = device
         self.training_config = config
-        self.quant = quant
+        self.qat = qat
 
     def train_epoch(self):
         """
@@ -102,55 +102,83 @@ class Trainer:
         """
         num_epochs = self.training_config['training_params'].get('epochs', 10)
         model_save_path = self.training_config['training_params'].get('model_save_path', './model_checkpoints')
-        
-        best_val_f1 = -1.0 # Initialize with a value lower than any possible F1 score
+        os.makedirs(model_save_path, exist_ok=True)
+
         pruning_config = self.training_config['compression_params'].get("pruning", {})
         quant_config = self.training_config['compression_params'].get("quantization", {})
-        prefixes = []
         
-        model_name = self.model.model_name
+        # Model Name
+        prefixes = []
         if quant_config.get("enabled", False):
             prefixes.append("QAT")
         if pruning_config.get("enabled", False):
             prefixes.append("Pruning")
-
-        model_name = "_".join(prefixes + [model_name])
-
+        model_name = "_".join(prefixes + [self.model.model_name+'.pth'])
         
-        # Prepare model for QAT before training starts
-        if quant_config.get("enabled", False):
-            self.model = prepare_qat_model(self.model, quant_config, logger)
-
+        # Tracking
         best_val_f1 = -1.0
-        model_save_path = self.training_config['training_params'].get('model_save_path', './model_checkpoints')
-        os.makedirs(model_save_path, exist_ok=True)
+        best_epoch = -1
+        patience = self.training_config['training_params']['early_stopping'].get('patience',5)
+        no_improve_epochs = 0
+
+        # Scheduler
+        optimizer = self.optimizer
+        schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='max', factor=0.5, patience=2, min_lr=1e-6
+        )
+
+        q_start_e = quant_config.get('start_epoch', 3)
 
         for epoch in range(num_epochs):
+            logger.info(f"* Epoch {epoch + 1}/{num_epochs}")
+            
+            # Apply QAT
+            if self.qat and epoch >= q_start_e :
+                if pruning_config.get("enabled", False):
+                    self.model = remove_pruning(self.model, logger)
+                
+                self.model.qat_prepared = True
+                self.model = prepare_qat_model(
+                    self.model,
+                    quant_config,
+                    logger,
+                    q_start_e,
+                    epoch
+                )
+            
+            self.model = self.model.to(self.device)
             train_loss = self.train_epoch()
 
-            # Pruning section
+            # Apply pruning
             if pruning_config.get("enabled", False):
-                logger.info(f'Pruning technique applied successfully')
                 self.model = apply_pruning(self.model, epoch, pruning_config, logger)
 
+            # Validation
             val_loss, metrics = self.validate_epoch()
-            logger.info(f"Epoch [{epoch+1}/{num_epochs}] - Train Loss: {train_loss:.4f}, "
-                        f"Val Loss: {val_loss:.4f}, F1: {metrics['f1_score']:.4f}")
+            f1 = metrics.get('f1_score', None)
+            logger.info(f"Train Loss: {train_loss:.4f}, "
+                        f"Val Loss: {val_loss:.4f}, F1: {f1:.4f}")
 
-            if metrics['f1_score'] > best_val_f1:
-                best_val_f1 = metrics['f1_score']
-                torch.save(self.model.state_dict(), os.path.join(model_save_path, f'best_{model_name}.pth'))
-                logger.info(f"New best model saved with F1-score: {best_val_f1:.4f}")
+            # LR scheduling
+            if schedular is not None and f1 is not None:
+                schedular.step(f1)
+
+            #Save best model
+            best_val_f1, best_epoch, no_improve_epochs = get_best_model(self.model, f1, epoch, best_val_f1, best_epoch, no_improve_epochs, model_save_path, model_name,self.training_config['compression_params'], logger)
+
+            # Early stopping
+            if no_improve_epochs >= patience and self.training_config['training_params']['early_stopping'].get('enabled', False):
+                logger.info(f'Early stopping at epoch {epoch+1}. No improvement in F1 for {patience} consecutive epochs.')
+                break
 
         # Cleanup pruning masks
         if pruning_config.get("enabled", False):
             self.model = remove_pruning(self.model, logger)
+        
+        if self.qat:
+            self.model = convert_qat_model(self.model, quant_config, self.val_loader,logger)
 
-        # Convert QAT model after training
-        if quant_config.get("enabled", False):
-            self.model = convert_qat_model(self.model, quant_config, logger)
-
-        logger.info("Training finished with compression applied.")
+        logger.info("Training finished.")
 
 if __name__ == '__main__':
     # Load configuration 

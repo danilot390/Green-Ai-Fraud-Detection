@@ -6,6 +6,16 @@ from sklearn.metrics import (
 
 from src.utils.common import to_int_array
 
+def find_best_threshold(y_true, y_probs):
+    thresholds = np.arange(0.1, 0.9, 0.01)
+    best_f1, best_t = 0, 0.5
+    for t in thresholds:
+        preds = (y_probs >= t).astype(int)
+        f1 = f1_score(y_true, preds)
+        if f1 > best_f1:
+            best_f1, best_t = f1, t
+    return best_t, best_f1
+
 def calculate_metrics(y_true, y_pred_binary, y_pred_proba=None):
     """
     Calculate key classification metrics for imbalanced datasets
@@ -47,12 +57,7 @@ def calculate_metrics(y_true, y_pred_binary, y_pred_proba=None):
         metrics['pr_auc'] = np.n
 
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred_binary, labels=[0, 1]).ravel()
-    metrics.update({
-        "true_negatives" : float(tn), 
-        "false_positives" : float(fp), 
-        "false_negatives" : float(fn), 
-        "true_positives" : float(tp)
-    })
+    metrics['Confusion Matrix'] = f'TP={float(tp):.4f}, FP={float(fp):.4f}, FN={float(fn):.4f}, TN={float(tn):.4f}'
 
     return metrics
 
@@ -84,7 +89,10 @@ def evaluate_model(model, dataloader, device, threshold=0.5):
     
     all_probs = np.array(all_probs)
     all_targets = np.array(all_targets)
-    y_pred = (all_probs >= threshold).astype(int)
+    best_trheshold, best_f1 = find_best_threshold(all_targets, all_probs)
+    print(f'Best threshold: {best_trheshold} \nBest F1: {best_f1}')
+
+    y_pred = (all_probs >= best_trheshold).astype(int)
     
     return calculate_metrics(all_targets, y_pred, all_probs)
 

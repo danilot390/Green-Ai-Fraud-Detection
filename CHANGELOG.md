@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-10-09
+()
+### Added
+- New baseline model to compare with Green Pipeline in terms of performance and sustainability.
+- `src/models/xbost_cnn_bilstm.py` with `XBoost_CNN_BiLSTM` hybrid model combining CNN, BiLSTM, and MLP architectures, with optional integration of XGBoost-derived embeddings for tabular data.
+- `src/models/losses.py` with `FocalLoss` function for binary classification tasks.
+- `batch_lime_explanations` in `src/XAI/xai_hybrid_model.py` to generate LIME explanations for multiple data points and return top key features.
+- `Batch Norm` added to `src/models/conventional_model.py` for improved performance.
+- `Quantization-Dinamic` functionality added, and improved `Quantization Aware Training` & `Pruning` pipelines in `src/training/compression.py`.
+- `get_best_model` in `src/utils/model_utils.py` to save the best model based on F1 improvements or pruning/quantization tolerance.
+- `ml_cnn_bl_model` flag added in `load_model` function (`src/utils/model_utils.py`).
+- `find_best_threshold` function added and integrated into `evaluate_model` (`src/utils/metrics.py`).
+- `estimate_lstm_flops`, `calculate_flops_hybrid_ml` added and `calculate_flops_hybrid` improved in `src/utils/flops.py`.
+
+### Changed
+- Reordered and updated `config/experiments_config.yaml` with `dataset_name` & `xai_cases`.
+- Updated `config/model_config.yaml` for conventional model and added `xgb_cnn_bilstm_model`.
+- Updated `Loss config` in `config/training_config.yaml`.
+- Reordered parameters in `config/xai_config.yaml`.
+- `src/XAI/xai_hybrid_model.py` updated for batch LIME explanations.
+- `src/pipeline/evaluation.py` updated to measure latency and FLOPs for `XBoost_CNN_BiLSTM` and split metrics into performance and sustainability.
+- `src/pipeline/green_ai.py` adapted to function changes.
+- `src/pipeline/model.py` updated to support configurable loss function.
+- `src/pipeline/tracking.py` updated emissions logging.
+- `src/pipeline/training.py` improved quantization in the training pipeline.
+- `src/pipeline/xai.py` refactored for general XAI analyses and saving specific analyses by configuration.
+- `src/training/trainer.py` updated with optimized scheduler, quantization functionalities, and early stopping in `trainer.run`.
+- `src/utils/plotting.py` updated to stop showing graphs as they are saved automatically.
+- `src/utils/reproducibility.py` updated logging handling.
+### Fixed
+*(No bug fixes reported in this version.)*
+
+### Removed
+- Deleted unnecessary `src/utils/.gitkeep` file.
+
+### Dependencies
+- Added `xgboost` library in `requirements.txt`.
+
 ## [0.1.1] - 2025-09-13
 ([commit b0c8252](https://github.com/danilot390/Green-Ai-Fraud-Detection/commit/b0c82528bb3cec3503a3d1458fcb9c4540e1eced))
 ### Added

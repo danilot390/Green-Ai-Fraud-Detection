@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import os
 import sys
+from collections import Counter
 
 from src.models.hybrid_model import HybridModel
 from src.utils.config_parser import load_config
@@ -10,20 +11,21 @@ from src.utils.logger import setup_logger
 
 from lime.lime_tabular import LimeTabularExplainer
 
-def explain_model_with_lime(model, explainer, data_point, class_names, config,device, logger, path_dir='lime_explanation.html'):
-    """
-    Generates a LIME explanation for a single data point.
-    """
 
+
+def batch_lime_explanations(model, explainer, data_points, class_names, config, device, logger):
+    """
+    Generates LIME explanations for multiple data points.
+    Returns top Key Features for fraud & non-fraud.
+    """
     def predict_fn(data):
         """ 
         Prediction function to be used by LIME.
         Expects data and returns probabilities.
         """
-        # Convert numpy array to PyTorch tensor
         data_tensor = torch.from_numpy(data).float().to(device)
         
-        # Reshape data to fit the hybrid model's expected input shape (Batch, TimeSteps, Features)
+        # Reshape data 
         num_timesteps = model.snn_time_steps
         data_tensor_sequential = data_tensor.unsqueeze(1).repeat(1, num_timesteps, 1)
 
@@ -33,20 +35,60 @@ def explain_model_with_lime(model, explainer, data_point, class_names, config,de
             logits = model(data_tensor_sequential)
             probabilities = torch.sigmoid(logits)
 
-        # Ensure probabilities are returned in shape (N, 2) for binary classification
+        # Probabilities
         if probabilities.ndim == 1:
             probabilities = probabilities.unsqueeze(1)
         if probabilities.shape[1] == 1:
             probabilities = torch.cat([1 - probabilities, probabilities], dim=1)
 
-        # Return the probabilities as a numpy array
         probabilities = probabilities.detach().cpu().numpy()
         return probabilities
+    results = []
+    fraud_features = []
+    nonfraud_features = []
+    top_k = config['xai'].get('top_k', 3)
+    num_features = config['xai'].get('num_features', 5)
+    
+    for idx, data_point in enumerate(data_points):
+        explanation = explainer.explain_instance(
+            data_row = data_point,
+            predict_fn = predict_fn,
+            num_features = num_features,
+            labels = [0, 1]
+        )
 
+        # Top features 
+        top_nonfraud = explanation.as_list(label=0)[:top_k]
+        top_fraud = explanation.as_list(label=1)[:top_k]
+
+        fraud_features.extend([feature for feature, _ in top_fraud])
+        nonfraud_features.extend([ feature for feature, _ in top_nonfraud])
+
+        results.append({
+            'data_index': idx,
+            'predicted_class': int(np.argmax(explanation.predict_proba)),
+            'probabilities': explanation.predict_proba.tolist(),
+            'top_nonfraud_features': top_nonfraud,
+            'top_fraud_features': top_fraud,
+        })
+    # Common features
+    global_top_fraud = Counter(fraud_features).most_common(top_k)
+    global_top_nonfraud = Counter(nonfraud_features).most_common(top_k)
+
+    return {
+        'per_point_explanations': results,
+        'global_top_fraud_features': global_top_fraud,
+        'global_top_nonfrauds_features': global_top_nonfraud,
+    }
+
+def explain_model_with_lime(model, explainer, data_point, class_names, config,device, logger, path_dir='lime_explanation.html'):
+    """
+    Generates a LIME explanation for a single data point.
+    """
     # Generate the explanation
     explanation = explainer.explain_instance(
         data_row=data_point,
-        predict_fn=predict_fn,
+        #predict_fn=predict_fn,
         num_features=config['num_features'],
         labels=[0, 1],      # The labels to explain (Non-Fraud, Fraud)
     )
@@ -156,4 +198,5 @@ if __name__ == '__main__':
     instance_to_explain = X_test_tabular[rand_instance_idx]
     
     # Generate and print the explanation for the selected instance 
-    explain_model_with_lime(model, explainer, instance_to_explain, class_names, xai_config['xai_methods']['lime'], device, logger)
+    batch_lime_explanations(model, explainer, instance_to_explain, class_names, xai_config['xai_methods']['lime'], device, logger)
+

@@ -14,6 +14,9 @@ class ConventionalNN(nn.Module):
         for layer_params in self.config['mlp_layers']:
             mlp_layers.append(nn.Linear(in_features, layer_params['units']))
 
+            # Add BatchNorm only if enabled in config
+            if layer_params.get('batchnorm', False):
+                mlp_layers.append(nn.BatchNorm1d(layer_params['units']))
             # Activation function
             activation_name = layer_params['activation']
             if activation_name == 'ReLU':

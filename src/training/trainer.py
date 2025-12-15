@@ -116,7 +116,7 @@ class Trainer:
         model_name = "_".join(prefixes + [self.model.model_name+'.pth'])
         
         # Tracking
-        best_val_f1 = -1.0
+        best_val_f2 = -1.0
         best_epoch = -1
         patience = self.training_config['training_params']['early_stopping'].get('patience',5)
         no_improve_epochs = 0
@@ -155,16 +155,18 @@ class Trainer:
 
             # Validation
             val_loss, metrics = self.validate_epoch()
+            f2_score = metrics.get('f2_score', None)
             f1 = metrics.get('f1_score', None)
+            recall = metrics.get('recall', None)
             logger.info(f"Train Loss: {train_loss:.4f}, "
-                        f"Val Loss: {val_loss:.4f}, F1: {f1:.4f}")
+                        f"Val Loss: {val_loss:.4f}, F2-score: {f2_score:.4f}, F1: {f1:.4f}, recall: {recall:.4f}")
 
             # LR scheduling
             if schedular is not None and f1 is not None:
                 schedular.step(f1)
 
             #Save best model
-            best_val_f1, best_epoch, no_improve_epochs = get_best_model(self.model, f1, epoch, best_val_f1, best_epoch, no_improve_epochs, model_save_path, model_name,self.training_config['compression_params'], logger)
+            best_val_f2, best_epoch, no_improve_epochs = get_best_model(self.model, f2_score, epoch, best_val_f2, best_epoch, no_improve_epochs, model_save_path, model_name,self.training_config['compression_params'], logger)
 
             # Early stopping
             if no_improve_epochs >= patience and self.training_config['training_params']['early_stopping'].get('enabled', False):

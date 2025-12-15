@@ -35,6 +35,6 @@ preprocessing_params:
     method: 'rate_coding'
     time_steps: 100 # Number of time steps for SNN input encoding
 
-# Dataset training
-dataset_training:
-  dataset_name: 'credit_card_fraud'
+
+
+    

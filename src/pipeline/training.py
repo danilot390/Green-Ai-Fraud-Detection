@@ -10,7 +10,6 @@ def run_training(model, criterion, optimizer, train_loader, val_loader, device, 
     """
     logger.info('Training final model...')
     qat = q_enabled and training_config['compression_params']['quantization']['method'] == 'qat'
-
     trainer = Trainer(model, criterion, optimizer, train_loader, val_loader, device, training_config, qat)
     trainer.run(logger=logger)
 
@@ -38,4 +37,39 @@ def run_training(model, criterion, optimizer, train_loader, val_loader, device, 
             q_model = quantize_model(model, logger)
             return q_model    
         
+    if model.model_name == 'HybridModel' :
+        if model.meta_learning is False:
+            logger.warning("Meta-learning not enabled. Returning base model.")
+            return model
+        from src.models.green_xgboost_stack_model import HybridStackingModel
+        stacking = HybridStackingModel(model, training_config.get('xgboost_params', None))
+        copy_train_loader = torch.utils.data.DataLoader(
+            train_loader.dataset,
+            batch_size=training_config['training_params'].get('batch_size', 512),
+            shuffle=False,
+            num_workers=training_config['training_params'].get('num_workers', 4),
+            pin_memory=True
+        )
+        X_train_tensor=copy_train_loader.dataset.get_all_data_tensor().to(device)
+        y_train=copy_train_loader.dataset.get_all_labels_numpy()
+        
+        stacking.fit_meta(
+            x_train_tensor=X_train_tensor,
+            y_train=y_train,
+            batch_size=training_config['training_params'].get('batch_size', 512)
+        )
+
+        xgb_path = os.path.join(save_dir, f"{model.model_name}_xgboost.json")
+        stacking.meta_model.save_model(xgb_path)
+        
+        logger.info(f"XGBoost meta-learner saved at: {xgb_path}")
+        try: 
+            torch.save(stacking.state_dict(), os.path.join(save_dir, 'stacked_'+checkpoint_name))
+            logger.info(f'Model checkpoint saved at {save_path}')
+        except Exception as e:
+            logger.warning(f"Could not save stacking model state_dict: {e}")
+        logger.info("Stacking training complete.")
+        
+        return stacking
+
     return model

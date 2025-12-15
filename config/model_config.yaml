@@ -2,47 +2,52 @@
 # ===========================================================
 # This file contains the configuration for model parameters and settings  
 
-dataset_name: 'credit_card_fraud'
+# Hybrid Model combining SNN and Conventional NN for Fraud Detection
+hybrid_model:  
+  model_name: 'Green AI Fraud Detection'
+  version: '1.0.0'
+  description: 'A hybrid model combining Spiking Neural Networks (SNN) and Conventional Neural Networks (CNN) for efficient fraud detection.'
+  enabled: True
+  meta_learning:
+    enabled: True 
+    strategy: 'XGBoost' # Options: 'XGBoost'
+
+
 # Spiking Neural Network (SNN) parameters
 snn_model:
   enabled: True 
-  model_name: 'SNN Early Warning System '
-  layer_types: ['Linear', 'LIF']
-  input_size: 29 # Number of input features
+  model_name: 'SNN Temporal Feature Extractor'
   time_steps: 50 
   hidden_layers: 
-    #- units: 128
-    #  activation: 'LIF'
-    #  beta: 0.97 #Leakage parameter for LIF neurons
-    #  tou : 2.0 # Time constant for LIF neurons
     - units: 32
       activation: 'LIF'
+      beta: 0.97 #Leakage parameter for LIF neurons
+      tau : 2.0 # Time constant for LIF neurons
+      dropout: 0.05
+    - units: 64
+      activation: 'LIF'
       beta: 0.95 #Leakage parameter for LIF neurons
-      tou : 2.0 # Time constant for LIF neurons
-  output_size: 32
+      tau : 2.0 # Time constant for LIF neurons
+      dropout: 0.05
   threshold: 0.87 # Threshold for firing neurons
   sparse_gradient: True # Use sparse gradients for efficiency
 
 # Conventional Neural Network (CNN) parameters
 conventional_nn_model:
-  mode_name: 'Compressed Fraud Detector CNN'
+  mode_name: 'CNN Static Feature Extractor'
   enabled: True
-  input_size: 32 # Input from SNN output_size
   architecture_type: 'MLP'
   mlp_layers:
-    - units: 128
+    - units: 32
       activation: "ReLU"
-      dropout_rate: 0.2
-      batchnorm: False
-    # - out_channels: 128
-    #   kernel_size: 3
-    #   padding: 1
+      dropout_rate: 0.20
+      batchnorm: True
   output_size: 1 # Binary classification for fraud detection
   output_activation: 'Sigmoid' # For binary classification
+  
 xgb_cnn_bilstm_model:
   mode_name: 'XGBoost + CNN + BiLSTM Fraud Detector'
   enabled: False
-  input_size: 32                  # input features
   cnn_config:
     cnn_layers:
       - out_channels: 32

@@ -4,6 +4,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-12-14
+([commit ]())
+###Added
+- `src/models/green_xgboost_stack_model.py`: XGBoost-based Meta-learner for the Stacked Hybrid Model.
+- `notebooks/creditcards_eda.ipynb`: exploratory data analyses (EDA) for the **Credit Card Fraud Detection** dataset.
+- `notebooks/synthetic_data_eda.ipynb`: exploratory data analyses (EDA) for the **PaySim Synthetic Financial Fraud** dataset.
+- `notebooks/experiment_eval.ipynb`: notebook to assess experimental outcomes.
+
+### Changed
+- `README.md`: updated to reflect the lastest architectural and pipeline changes.
+- `config/data_config.yaml`: removed unnecesary parameters.
+- `config/experiments_config.yaml`: removed unavailable parameters for the tracker.
+- `config/model_config.yaml`:
+  - Added `Hybrid_model` configuration.
+  - Updated `snn_model` and `conventional_nn_model` configurations.
+- `config/training_config.yaml`: added configuration for meta-learner `xgboost_params`.
+- `requirements.txt`: reorganized depndencies by category.
+- `setup.py`: updated to install `src` as a Python package.
+- `src/XAI/xai_hybrid_model.py`: updated `batch_lime_explanations` & `explain_model_with_lime` to suppport the Stacked Hybrid Model.
+- `src/data/preprocess.py`: extended the `FraudDataset` class to support the staked learning:
+  - Added `get_all_data_tensor` to return the full dataset as a single PyTorch tensor.
+  - Added `get_all_labels_numpy`: to return all labels as a NumPy array.
+- `src/models/conventional_model.py`: added **GELU** activation support.
+- `src/models/hybrid_model.py`: refactored and extended `HybridModel`:
+  - Added support for configurable multi-layer SNN & MLP architectures.
+  - Refactored `forward` logi by extracting  `extract_fused_features` to support feature extraction for XGBoost Meta-Learner.
+- `src/pipeline/evaluation.py`: updated `run_evaluation`:
+  - Added support for the Stacked Hybrid Model
+  - Added warm-up handling
+  - Improved robustness of FLOPs to GFLOPs conversion.
+- `src/pipeline/green_ai.py`: improved XAI invocation logic.
+- `src/pipeline/training.py`: added Stacked Meta-Learner training for the Hybrid model.
+- `src/pipeline/xai.py`: added configurable parameters for `batch_lime_explanation`.
+- `src/training/trainer.py`: added **F2-score metric** support.
+- `src/utils/flops.py`: improved approximation logic in `calculate_flops_hybrid` & `calculate_flops_hybrid_ml`.
+- `src/utils/metrics.py`: 
+  - Added `f2_score` in `calculate_metrics`.
+  - Simplified and remove unnecesaary logic from `evaluate_model`
+- `src/utils/model_utils.py`:
+  - Updated `get_model_use`.
+  - Channged `get_best_model` to use `f2_score` as the primary selection metric.
+
+### Breaking changes
+- The **hybrid Model Architecture** has been refactored to support **stacked learning** with an XGBoost Meta-Learner. Existing checkpoints trained earlier hybrid implementations are **not backward-compatible**.
+- Model selection logic now prioritized **F2-score** instead F1-score. This may change the "Best model" selected during evaluation, particulary on highly imbalanced datasets.
+- FLOPs estimation logic for hybrid models has been revised. FLOPs values reported in earlier experiments should not be directly compared with results from v1.0.0
+
+### Known Limitations
+- FLOPs and energy consumption metrics rely on approximation and profilin heuristic rather than hardware-level measurement, and should be interpreted as relative indicators, not absolute values.
+- XAI explantions using LIME are:
+  - Local to individual instances 
+  - Sentsitive to feature sclainfg and sampling randmoness
+  - Not guaranteed  to reflect global model bahavior
+- Spiking Neural Networks (SNN) components are evaluated on CPU based simulation, shich may not fully reflect performance characteristics on neuromorphic hardware.
+- The framework is designed for research and benchmarking purposes and is not optimized for real-time or production deployment.
+- Class imbalnce handling is dataset-specific; results may not generalize without recalibration when appliied to unseen financial environments
+
 ## [0.2.2] - 2025-10-09
 ([commit 1b5873c](https://github.com/danilot390/Green-Ai-Fraud-Detection/commit/1b5873cc3e57027499e3a3931ba80046c4d5eb01))
 ### Added

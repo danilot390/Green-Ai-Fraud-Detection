@@ -21,6 +21,8 @@ class ConventionalNN(nn.Module):
             activation_name = layer_params['activation']
             if activation_name == 'ReLU':
                 mlp_layers.append(nn.ReLU())
+            elif activation_name == 'GELU':
+                mlp_layers.append(nn.GELU())
             elif activation_name == 'Sigmoid':
                 mlp_layers.append(nn.Sigmoid())
             elif activation_name == 'Tanh':

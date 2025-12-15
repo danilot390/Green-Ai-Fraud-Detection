@@ -13,7 +13,7 @@ from lime.lime_tabular import LimeTabularExplainer
 
 
 
-def batch_lime_explanations(model, explainer, data_points, class_names, config, device, logger):
+def batch_lime_explanations(model, explainer, data_points, config, time_steps, device, logger):
     """
     Generates LIME explanations for multiple data points.
     Returns top Key Features for fraud & non-fraud.
@@ -24,28 +24,27 @@ def batch_lime_explanations(model, explainer, data_points, class_names, config, 
         Expects data and returns probabilities.
         """
         data_tensor = torch.from_numpy(data).float().to(device)
-        
-        # Reshape data 
-        num_timesteps = model.snn_time_steps
-        data_tensor_sequential = data_tensor.unsqueeze(1).repeat(1, num_timesteps, 1)
+        data_tensor_seq = data_tensor.unsqueeze(1).repeat(1, time_steps, 1)
 
-        # Pass through the model
-        model.eval()
-        with torch.no_grad():
-            logits = model(data_tensor_sequential)
-            probabilities = torch.sigmoid(logits)
+        try:
+            # Extract fused features (PyTorch forward)
+            with torch.no_grad():
+                fused = model.hybrid_model(data_tensor_seq, return_features=True)  # [N, D]
+        except Exception as e:
+            logger.error(f"Error during feature extraction: {e}")
+            return None
+
+        # Move to CPU for XGBoost
+        fused_np = fused.cpu().numpy()
 
         # Probabilities
-        if probabilities.ndim == 1:
-            probabilities = probabilities.unsqueeze(1)
-        if probabilities.shape[1] == 1:
-            probabilities = torch.cat([1 - probabilities, probabilities], dim=1)
-
-        probabilities = probabilities.detach().cpu().numpy()
+        probabilities = model.meta_model.predict_proba(fused_np)
         return probabilities
+    
     results = []
     fraud_features = []
     nonfraud_features = []
+
     top_k = config['xai'].get('top_k', 3)
     num_features = config['xai'].get('num_features', 5)
     
@@ -85,10 +84,17 @@ def explain_model_with_lime(model, explainer, data_point, class_names, config,de
     """
     Generates a LIME explanation for a single data point.
     """
+    def predict_fn(data_np):
+        data_tensor = torch.from_numpy(data_np).float().to(device)
+        with torch.no_grad():
+            fused = model.hybrid_model(data_tensor, return_features=True)
+        fused_np = fused.cpu().numpy()
+        return model.meta_model.predict_proba(fused_np)
+
     # Generate the explanation
     explanation = explainer.explain_instance(
         data_row=data_point,
-        #predict_fn=predict_fn,
+        predict_fn=predict_fn,
         num_features=config['num_features'],
         labels=[0, 1],      # The labels to explain (Non-Fraud, Fraud)
     )
@@ -109,7 +115,7 @@ def explain_model_with_lime(model, explainer, data_point, class_names, config,de
         logger.info(f"  - {feature_id}: {weight:.4f}")
 
     # Save explanation as HTML
-    if config.get('save_html', False):
+    if config.get('save_html', True):
         explanation.save_to_file(path_dir)
         logger.info(f"LIME explanation saved to `{path_dir}`.")
 

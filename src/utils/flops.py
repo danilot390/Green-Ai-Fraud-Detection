@@ -2,18 +2,25 @@ import torch.nn as nn
 import torch
 from ptflops import  get_model_complexity_info
 
-def calculate_flops_hybrid(model, input_tensor):
+def calculate_flops_hybrid(model, input_tensor, logger, lif_ops=6):
     """
-    Manually calculates FLOPs for the hybrid model.
+    Manually calculates FLOPs for a Stacked hybrid model.
     """
     total_flops = 0
     batch_size, time_steps, features = input_tensor.shape
 
     # Conventional NN Flops
-    for layer in model.conv_model.children():
+    for layer in model.conv_model.modules():
+
         if isinstance(layer, nn.Linear):
             # FLOPs for a Linear layer: 2 * in_features * out_features (mult and add)
             total_flops += 2 * layer.in_features * layer.out_features
+        elif isinstance(layer, nn.ReLU):
+            # FLOPs for ReLU: 1 * number of elements
+            total_flops += layer.inplace == False
+        elif isinstance(layer, nn.GELU):
+            # Approximate GELU FLOPs (tanh-based)
+            total_flops += 12 * layer.num_features
         
     # SNN FLOPs
     snn_time_steps = model.snn_time_steps
@@ -24,16 +31,21 @@ def calculate_flops_hybrid(model, input_tensor):
             in_features = module.in_features
             out_features = module.out_features
             prev_out_features = out_features
+
             total_flops += 2* in_features* out_features* snn_time_steps
         
         elif "LIFNode" in module.__class__.__name__ and isinstance(module, nn.Module):
             # A simplified estimation for LIF: 2 ops per neuron per time step (decay & update)
-            total_flops += 2 * prev_out_features * snn_time_steps
+            if prev_out_features is None:
+                raise ValueError("LIFNode found before any Linear layer to determine output features.")
+            
+            total_flops += lif_ops * prev_out_features * snn_time_steps
 
     # Final Linear Layer (connects SNN and MLP outputs)
     final_linear_layer = model.fusion_layer
     total_flops += 2 * final_linear_layer.in_features * final_linear_layer.out_features
 
+    logger.info(f'Total FLOPs: {total_flops:.4f}')
     return total_flops
 
 def estimate_lstm_flops(input_size, hidden_size, seq_len, num_directions=2):
@@ -58,18 +70,35 @@ def calculate_flops_hybrid_ml(model, input_size, lstm_input_size, lstm_hidden_si
             x_cnn = x_cnn.view(x.size(0), -1)
 
             # fake LSM output
-            lstm_out = torch.zeros(x.size(0), self.model.lstm.hidden_size * 2).to(x.device)
+            lstm_out = torch.zeros(
+                x.size(0), self.model.lstm.hidden_size * 2
+            ).to(x.device)
 
-            xgb_emb = x.view(x.size(0), -1)
+            xgb_emb = x.view(
+                x.size(0), self.model.input_size
+            ).to(x.device)
 
             fusion =  torch.cat([x_cnn, lstm_out, xgb_emb], dim =1)
 
             return self.model.mlp_stack(fusion)
 
     # Cnn + MLP
-    macs, _ = get_model_complexity_info(WrappedModel(model), input_size, as_strings= False, print_per_layer_stat= False ) 
+    macs, _ = get_model_complexity_info(
+        WrappedModel(model), 
+        input_size, 
+        as_strings= False, 
+        print_per_layer_stat= False,
+        verbose= False
+        ) 
+    
+    # MACs -> FLOPs
+    macs *= 2
+
     # LSTM FLOPs
-    lstm_flops = estimate_lstm_flops(lstm_input_size, lstm_hidden_size, lstm_seq_len)
+    lstm_flops = estimate_lstm_flops(
+        lstm_input_size, 
+        lstm_hidden_size, 
+        lstm_seq_len)
 
     total_flops = macs+ lstm_flops
     
@@ -78,7 +107,8 @@ def calculate_flops_hybrid_ml(model, input_size, lstm_input_size, lstm_hidden_si
     logger.info(f'Total FLOPs: {total_flops:.4f}')
     
     return {
-        'FLOPs (CNN + MLP)': {macs},
-        'FLOPs (BiLSTM estimated)': {lstm_flops},
-        'Total FLOPs': {total_flops}
+        'FLOPs (CNN + MLP)': macs,
+        'FLOPs (BiLSTM estimated)': lstm_flops,
+        'Total FLOPs': total_flops
     }
+

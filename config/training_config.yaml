@@ -1,10 +1,9 @@
 # Training Configuration
 # --------------------
 training_params:
-  epochs: 20
-  
-  batch_size: 256
-  learning_rate: 0.001
+  epochs: 2
+  batch_size: 512
+  learning_rate: 0.0008
   optimizer: "Adam" # Options: "Adam", "SGD", "Adagrad"
   loss_config:
     type: 'BCEWithLogitsLoss' # BCEWithLogitsLoss - FocalLoss
@@ -14,18 +13,31 @@ training_params:
   class_weights_scale: 10.0 # Factor to scale minority class weight
   early_stopping:
     enabled: True
-    patience: 8 # Number of epochs with no improvement before stopping
+    patience: 7 # Number of epochs with no improvement before stopping
     min_delta: 0.0001 # Minimum change to qualify as an improvement
-    monitor: "val_f1_score" # Metric to monitor for early stopping
+    monitor: "val_f2_score" # Metric to monitor for early stopping
   gradient_clipping:
     enabled: True
     clip_value: 1.0 # Clip gradients to prevent exploding gradients
-  device: "cuda" # Options: "cpu", "cuda", "mps" (for Apple Silicon Macs)
+  device: "cpu" # Options: "cpu", "cuda", "mps" (for Apple Silicon Macs)
   num_workers: 4 # For data loading
   seed: 42 # Global random seed for reproducibility
   log_interval: 100 # Log progress every N batches/steps
   model_save_path: "models/checkpoints/"
   best_model_hybrid_filename: "best_hybrid_fraud_detector.pth"
+
+
+xgboost_params:
+  n_estimators: 250
+  max_depth: 4
+  learning_rate: 0.035
+  subsample: 0.9
+  colsample_bytree: 0.8
+  min_child_weight: 1
+  reg_alpha: 0.0
+  reg_lambda: 1.0
+  objective: "binary:logistic"
+  eval_metric: "logloss"
 
 compression_params:
   pruning:

@@ -46,8 +46,10 @@ def main():
     run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_config, logger, tracker)
     
     # XAI for Hybrid model
-    if model.model_name == 'HybridModel':
-        run_xai(model, experiment_config['experiment'].get('dataset_name'), experiment_config['experiment'].get('xai_cases', 1), experiment_dir, logger, device)
+    if model.model_name in [ 'HybridStackingModel']:
+        run_xai(model, experiment_config['experiment'].get('dataset_name'), experiment_config['experiment'].get('xai_cases', 1), time_steps, experiment_dir, logger, device)
+    else:
+        logger.info("XAI explanations are only implemented for HybridStackingModel. Skipping XAI step...")
     
     # Save Hyperparameters
     params = {

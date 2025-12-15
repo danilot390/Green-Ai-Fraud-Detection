@@ -1,17 +1,26 @@
+# Tested on Python 3.12.1
+
 # Core Deep Learning Frameworks
-torch # No CUDA is needed or used on macOS.
-# torch==2.3.0+cu121 # for NVIDIA GPUs
+torch==2.8.0 # No CUDA is needed or used on macOS.
+# torch==2.3.0+cu121 # Optional: NVIDIA GPU support
+torchvision==2.8.0
+torchaudio==2.8.0
+
+# Spiking Neural Networks
 snntorch==0.8.0 
-torchvision 
-torchaudio
+brian2==2.9.0
+spikingjelly==0.0.0.0.14
 
-# Fraud Detection 
-imbalanced-learn==0.13.0  # For handling imbalanced datasets
+# Gradient Boosting
+xgboost==3.0.5
 
-# Data Handling 
+# Data Preprocessing and ML 
 numpy==1.26.4       
 pandas==2.2.2       
 scikit-learn==1.6.1
+imbalanced-learn==0.13.0  # For handling imbalanced datasets
+
+# Visualization
 matplotlib==3.9.0   
 seaborn==0.13.2     
 
@@ -20,13 +29,11 @@ shap==0.45.1
 lime==0.2.0.1       
 captum==0.8.0     # PyTorch-native library for interpretability and XAI
 
-# Energy Consumption Estimation
-codecarbon==3.0.4  # For estimating CO2 emissions and energy consumption of your code
+# Green AI/Efficiency Metrics
+codecarbon==3.0.4 # Energy Consumption Estimation
+ptflops==0.6.8 # FLOPs estimation for PyTorch models
 
-# For calculating FLOPs of PyTorch models
-ptflops==0.6.8
-
-# Configuration
+# Configuration management
 pyyaml==6.0.1    
 omegaconf==2.3.0 
 
@@ -34,6 +41,5 @@ omegaconf==2.3.0
 ipykernel==6.29.4   
 jupyterlab==4.2.1   
 
-spikingjelly
 
-xgboost=3.0.5
+

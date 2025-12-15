@@ -2,7 +2,6 @@
 # -----------------------------------
 
 experiment: 
-  name: "Hybrid_SNN_Compression_Fraud_V1"
   seed: 42
   run_id: "auto" # Or provide a specific ID for the run (e.g., timestamp)
   log_level: "INFO" # Options: "DEBUG", "INFO", "WARNING", "ERROR"
@@ -12,7 +11,7 @@ experiment:
 
 tracker: 
   enabled: True
-  type: "CodeCarbon" # Options: "wandb", "tensorboard", "
+  type: "CodeCarbon" 
   project: 'Green-AI-Fraud-Detection'
   output_directory: 'experiments/'
   log_level: 'error'

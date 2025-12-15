@@ -8,7 +8,7 @@ from src.XAI.xai_hybrid_model import batch_lime_explanations
 from src.utils.config_parser import load_config
 from src.utils.common import save_to_json
 
-def run_xai(model, dataset_name, xai_cases, experiment_dir, logger, device):
+def run_xai(model, dataset_name, xai_cases,time_steps, experiment_dir, logger, device):
     """
     Runs LIME on a model to explain test instances.
     """
@@ -58,8 +58,8 @@ def run_xai(model, dataset_name, xai_cases, experiment_dir, logger, device):
         model, 
         explainer, 
         instances_to_explain, 
-        class_names, 
-        xai_config, 
+        xai_config,
+        time_steps,
         device, 
         logger)
     

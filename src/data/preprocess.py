@@ -98,7 +98,7 @@ def feature_engineering(df, dataset_name):
 
         # Drop original balance columns if new diff features are preferred (optional)
         if PREPROCESSING_PARAMS.get('drop_original_balance_cols', False):
-            df = df.drop(columns=['oldbalanceOrig', 'newbalanceOrig', 'oldbalanceDest', 'newbalanceDest'])
+            df = df.drop(columns=['oldbalanceOrg', 'newbalanceOrig', 'oldbalanceDest', 'newbalanceDest'])
             print("Dropped original balance columns.")
 
     else:
@@ -264,6 +264,40 @@ class FraudDataset(Dataset):
             return features, labels
         else:
             return self.features[idx], self.labels[idx]
+        
+    def get_all_data_tensor(self):
+        """
+        Returns ALL dataset inputs as a single torch.Tensor.
+        Used for meta-learning in HybridStackingModel.
+        """
+        # Collect samples: extract ONLY features
+        all_inputs = []
+
+        for i in range(len(self)):
+            x, _ = self[i]
+            all_inputs.append(torch.tensor(x, dtype=torch.float32))
+
+        return torch.stack(all_inputs, dim=0)   # [N, T, F] or [N, F]
+
+    def get_all_labels_numpy(self):
+        """
+        Returns ALL labels as a NumPy array.
+        Ensures compatibility with sklearn/XGBoost (requires NumPy array).
+        """
+        labels = []
+
+        for i in range(len(self)):
+            _, y = self[i]
+
+            # Sequential case: use last timestep label
+            if isinstance(y, torch.Tensor) and y.ndim == 2:
+                labels.append(float(y[-1].item()))
+            else:
+                # Standard scalar label
+                labels.append(float(y))
+
+        return np.array(labels)
+
 
 def get_preprocessed_data(dataset_name="credit_card_fraud", target_column="Class", strategy='X/y tensors'):
     """

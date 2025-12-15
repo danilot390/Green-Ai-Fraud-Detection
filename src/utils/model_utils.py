@@ -15,7 +15,7 @@ def get_model_use(model_config):
     is_ml_cnn_bl_model = model_config['xgb_cnn_bilstm_model'].get('enabled', False)
     is_snn_model = model_config['snn_model'].get('enabled', False)
     is_conventional_model = model_config['conventional_nn_model'].get('enabled', False)
-    is_hybrid_model = is_snn_model and is_conventional_model
+    is_hybrid_model = model_config['hybrid_model'].get('enabled', False)
 
     return {
         "ml_cnn_bl_model": is_ml_cnn_bl_model,
@@ -57,15 +57,15 @@ def get_model_size(model, filename="temp_model.pth"):
     os.remove(filename)
     return size_mb
 
-def get_best_model(model, f1, epoch, best_val_f1, best_epoch, no_improve_epochs, model_save_path, model_name,cfg, logger):
+def get_best_model(model, f2, epoch, best_val_f2, best_epoch, no_improve_epochs, model_save_path, model_name,cfg, logger):
     """
     Saves the best model based whe a new f1 score is achieved, or meets pruning/quantization conditions allow tolereance-based updates.
     """
     save_model = qat = False
     pruning_config, quant_config = cfg.get("pruning", {}), cfg.get("quantization", {})
 
-    if f1 > best_val_f1:
-        best_val_f1 = f1
+    if f2 > best_val_f2:
+        best_val_f2 = f2
         best_epoch = epoch
         save_model = True
     else:
@@ -76,7 +76,7 @@ def get_best_model(model, f1, epoch, best_val_f1, best_epoch, no_improve_epochs,
         elif quant_config.get("enabled", False) and quant_config.get('start_epoch',5)<epoch:
             tolerance, qat = quant_config.get("tolerance", tolerance), True
 
-        if f1 >= best_val_f1 - tolerance:
+        if f2 >= best_val_f2 - tolerance:
             save_model = True
     
     if save_model:
@@ -84,11 +84,11 @@ def get_best_model(model, f1, epoch, best_val_f1, best_epoch, no_improve_epochs,
         torch.save({
             'model_state_dict':model.state_dict(),
             'epoch': epoch,
-            'f1_score': best_val_f1,
+            'f2_score': best_val_f2,
             'qat_enabled': qat
         }, os.path.join(model_save_path, model_name))
-        logger.info(f"New best model saved with F1-score: {best_val_f1:.4f}")
+        logger.info(f"New best model saved with F2-score: {best_val_f2:.4f}")
     else:
         no_improve_epochs += 1
 
-    return best_val_f1, best_epoch, no_improve_epochs
+    return best_val_f2, best_epoch, no_improve_epochs

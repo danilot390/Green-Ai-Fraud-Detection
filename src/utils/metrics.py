@@ -2,7 +2,7 @@ import numpy as np
 import torch, time
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, 
-    average_precision_score, confusion_matrix, f1_score, roc_auc_score)
+    average_precision_score, confusion_matrix, f1_score, roc_auc_score, fbeta_score)
 
 from src.utils.common import to_int_array
 
@@ -30,12 +30,13 @@ def calculate_metrics(y_true, y_pred_binary, y_pred_proba=None):
     precision = precision_score(y_true, y_pred_binary, pos_label=1, zero_division=0)
     recall = recall_score(y_true, y_pred_binary, pos_label=1, zero_division=0)
     f1 = f1_score(y_true, y_pred_binary, pos_label=1, zero_division=0)
-
+    f2_score = fbeta_score(y_true, y_pred_binary, beta=2, pos_label=1, zero_division=0)
     metrics = {
         'accuracy': accuracy,
         'precision': precision,
         'recall':recall,
         'f1_score':f1,
+        'f2_score':f2_score
     }
 
     # Calculate AUC-ROC if predicted probalities are provided
@@ -89,8 +90,7 @@ def evaluate_model(model, dataloader, device, threshold=0.5):
     
     all_probs = np.array(all_probs)
     all_targets = np.array(all_targets)
-    best_trheshold, best_f1 = find_best_threshold(all_targets, all_probs)
-    print(f'Best threshold: {best_trheshold} \nBest F1: {best_f1}')
+    best_trheshold, _ = find_best_threshold(all_targets, all_probs)
 
     y_pred = (all_probs >= best_trheshold).astype(int)
     

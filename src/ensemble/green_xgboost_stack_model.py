@@ -40,10 +40,10 @@ class HybridStackingModel:
         with torch.no_grad():
             for i in range(0, x_tensor.size(0), batch_size):
                 batch = x_tensor[i:i+batch_size]
-                feats = self.hybrid_model(batch, return_features=True)  # [B, D]
+                feats = self.hybrid_model.extract_fused_features(batch) 
                 all_features.append(feats.cpu().numpy())
         
-        return np.concatenate(all_features, axis=0)  # [N, D]
+        return np.concatenate(all_features, axis=0) 
 
     def fit_meta(self, x_train_tensor: torch.Tensor, y_train: np.ndarray, batch_size: int = 512):
         """

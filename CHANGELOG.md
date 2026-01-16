@@ -4,9 +4,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-01-20
+([commit]())
+### Added
+- Ensemble support and hybrid model expansion.
+- Ileberi & Sun (2024) ensemble model to compare against  the main Green AI architecture, using static parameters.
+- `CONTRIBUTORS.md` to list individuals or documentation that contributing in this project.
+- `notebooks/proposal_vs_i_s.ipynb` to analyse the Hybrid Green AI proposal veresus Ileberi & Sun (2024).
+- `src/ensemble/i_s_stacking.py` impolementing Ileberi & Sun (2024) staking ensemble with metrics.
+- `src/models/cnn_ie.py` CNN model for Ileberi & Sun (2024) ensemble.
+- `src/models/lstm_model_ie.py` LSTM model for Ileberi & Sun (2024) ensemble.
+- `src/models/transformer_model_ie.py`  Transformer model for Ileberi & Sun (2024) ensemble.
+- `src/models/registry.py` to register and manage avaible models.
+- `src/models/utils.py` with `_get_activation` helper for Torch models.
+- `src/pipeline/model_factory.py`:
+  - Moved `load_model` and `get_model-use` for better structure.
+  - Added `i_s_setup_model` for Ileberi & Sun (2024) ensemble setup.
+- `src/pipeline/utils.py`:
+  - Added `get_optimizer`  helper. 
+  - Added `buidl_criterion` function.
+  - Added `get_best_model` logic based on configured metrics. 
+
+### Changed
+- `README.md`: Updated to reflect new architecture and ensemble support.
+- Separeted ensemble and individual models following best practices.
+- `config/model_config.yaml`: Added Ileberi & Sun (2024) model configuration.
+- `config/training_config.yaml`: Added configurable monitoring metric.
+- `requirements.txt`: Fixed `torchvision` version.
+- `src/XAI/xai_hybrid_model.py`: Improved fused feature extraction handling for hybrid Green AI model. 
+- `src/data/dataloaders.py`: Fixed class imbalance handling, made it configurable, and improved logging. 
+- `src/models/conventional_model.py`: Refactored `ConventionalNN` and corrected `predict_proba` semantics.
+- Moved `src/models/green_xgboost_stack_model.py` to `src/ensemble/green_xgboost_stack_model.py` for clearer structure.
+- `src/models/hybrid_model.py`: Fixed fused feature extraction logic.
+- `src/pipeline/evalution.py`: Updated to support both models and ensemble models.
+- `src/pipeline/green_ai.py`: Refactored training and evaluation to support ensembles.
+- `src/pipeline/model.py`: Added criterion construction and ensemble handling.
+- `src/pipeline/training.py`: Added ensemble-aware training logic.
+- `src/training/trainer.py`: Refactored `Trainer` class and corrected semantic inconsistencies.
+-`src/utils/flops.py`:
+  - Added `_calculate_torch_flops` helpers.
+  - Added `calculate_flops_ensemble_model` for FLOPs estimation.
+- `src/utils/common.py`:
+  - Added model and ensemble size estimation utilities:
+    `_torch_model_size_mb`, `_xg_model_size_mb`, `get_model_size`,
+    `get_ml_model_size`, and `get_ensemble_size`.
+
+### Removed
+- Deleted unnecessary `models/checkpoints/.gitkeep` file.
+- Removed `src/utlis/model_utils.py` after redistributing its logic into more appropiate modules.
+
 ## [1.0.0] - 2025-12-14
 ([commit 29e5a22](https://github.com/danilot390/Green-Ai-Fraud-Detection/commit/29e5a22))
 ### Added
+- Initial stable release.
 - `src/models/green_xgboost_stack_model.py`: XGBoost-based Meta-learner for the Stacked Hybrid Model.
 - `notebooks/creditcards_eda.ipynb`: exploratory data analyses (EDA) for the **Credit Card Fraud Detection** dataset.
 - `notebooks/synthetic_data_eda.ipynb`: exploratory data analyses (EDA) for the **PaySim Synthetic Financial Fraud** dataset.

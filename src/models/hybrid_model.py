@@ -89,6 +89,11 @@ class HybridModel(nn.Module):
         """
         Extracts the fused feature representation from the SNN and MLP branches.
         """
+        # Temporal dimension
+        if x.dim() == 2:
+            # [B, F] -> [B, 1, F]
+            x = x.unsqueeze(1)
+
         # Reset the SNN state
         functional.reset_net(self.snn_model)
         
@@ -105,16 +110,10 @@ class HybridModel(nn.Module):
         fused_output = torch.cat((snn_output, conv_output), dim=1)
         return fused_output
 
-    def forward(self, x, return_features=False):
+    def forward(self, x):
         """
         Performs the forward pass for the hybrid model.
         """
         fused_output = self.extract_fused_features(x)
-
-        if return_features:
-            # For stacking
-            return fused_output
-        
-        # Direct prediction head 
-        output = self.fusion_layer(fused_output)  # [batch_size, 1]
-        return output
+        logits = self.fusion_layer(fused_output)
+        return logits.squeeze(1) 

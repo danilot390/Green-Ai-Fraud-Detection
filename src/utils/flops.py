@@ -1,13 +1,42 @@
 import torch.nn as nn
 import torch
-from ptflops import  get_model_complexity_info
+from ptflops import get_model_complexity_info
+
+def _calculate_torch_flops(model, input_shape):
+    """
+    Returns FLOPs and parameters for a PyTorch model.
+    """
+    with torch.no_grad():
+        flops, _ = get_model_complexity_info(
+            model,
+            input_shape,
+            as_strings=False,
+            print_per_layer_stat=False,
+            verbose=False,
+        )
+    return flops
+
+def _calculate_xgboost_flops(xgb_model):
+    """
+    Approximate inference FLOPs for XGBoost.
+    """
+    booster = xgb_model.get_booster()
+    
+    n_trees = len(booster.get_dump())
+    avg_depth = xgb_model.max_depth
+
+    flops_per_tree = avg_depth * 2
+
+    total_flops = n_trees * flops_per_tree
+    return total_flops
+
 
 def calculate_flops_hybrid(model, input_tensor, logger, lif_ops=6):
     """
     Manually calculates FLOPs for a Stacked hybrid model.
     """
     total_flops = 0
-    batch_size, time_steps, features = input_tensor.shape
+    # batch_size, time_steps, features = input_tensor.shape
 
     # Conventional NN Flops
     for layer in model.conv_model.modules():
@@ -112,3 +141,36 @@ def calculate_flops_hybrid_ml(model, input_size, lstm_input_size, lstm_hidden_si
         'Total FLOPs': total_flops
     }
 
+def calculate_flops_ensemble_model(model, input_size, logger):
+    """
+    Calculate FLOPs for Ileberi-Sun Stacking ensemble model.
+    """
+    total_flops = 0.0
+    breakdown = {}
+
+    if hasattr(model, 'hybrid_model'):
+        breakdown['hybrid_model'] = calculate_flops_hybrid(model.hybrid_model, input_size)
+        total_flops += breakdown['hybrid_model']
+
+    if hasattr(model, 'cnn_model'):
+        breakdown['cnn_model'] = _calculate_torch_flops(model.cnn_model, input_size)
+        total_flops += breakdown['cnn_model']
+
+    if hasattr(model, 'lstm_model'):
+        breakdown['lstm_model'] = _calculate_torch_flops(model.lstm_model, input_size)
+        total_flops += breakdown['lstm_model']
+
+    if hasattr(model, 'transformer_model'):
+        breakdown['transformer_model'] = _calculate_torch_flops(model.transformer_model, input_size)
+        total_flops += breakdown['transformer_model']
+
+    if hasattr(model, 'meta_model'):
+        breakdown['meta_model'] = _calculate_xgboost_flops(model.meta_model)
+        total_flops += breakdown['meta_model']
+
+    for k, v in breakdown.items():
+        logger.info(f'FLOPs ({k}): {v:,}')
+
+    logger.info(f'Total FLOPs: {total_flops:.4f}')
+    
+    return total_flops

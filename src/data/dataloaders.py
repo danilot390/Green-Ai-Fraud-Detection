@@ -1,5 +1,6 @@
 import torch
 import os
+import logging
 from torch.utils.data import DataLoader, WeightedRandomSampler
 
 from src.utils.config_parser import load_config
@@ -10,9 +11,9 @@ def get_dataloaders(data_config, training_config, device, dataset_name="credit_c
     Loads preprocessed tensors and creates PyTorch DataLoaders with WeightedRandomSampler if imbalance exists.
     Handles both non-sequential (Conventional NN) and sequential (Spiking NN and Hybrid) data formats.
     """
+    logger = logger or logging.getLogger(__name__)
     model_config = load_config('config/model_config.yaml')
     is_snn_model = model_config['snn_model'].get('enabled', False)
-    is_hybrid_model = is_snn_model and model_config['conventional_nn_model'].get('enabled', False)
 
     processed_dir = os.path.join(
         data_config['processed_data_paths'].get('credit_card_fraud_path')\
@@ -45,7 +46,7 @@ def get_dataloaders(data_config, training_config, device, dataset_name="credit_c
     train_labels = torch.tensor([item[1][-1].item() for item in train_dataset])if len(train_dataset[0][1].shape) > 1 else y_train
     
     # WeightedRandomSampler for class imbalance handling
-    if is_hybrid_model or is_snn_model:
+    if training_config['training_params'].get('class_imbalance_handling', False):
         class_counts = torch.bincount(train_labels.long())
         if len(class_counts) > 1:
             class_weights = 1.0 / class_counts.float()

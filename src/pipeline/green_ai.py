@@ -36,21 +36,32 @@ def main():
     time_steps = data_config['preprocessing_params']['snn_input_encoding'].get('time_steps', None)
     
     # Model
-    model, criterion, optimizer, qat_enabled, is_hybrid = setup_model(input_size, time_steps, device, model_config, training_config, y_train, logger)
-
-    # Train
-    model = run_training(model, criterion, optimizer, train_loader, val_loader, device, training_config, logger, qat_enabled)
-    #model = finalize_model(model, qat_enabled, training_config, logger)
+    model_prep = setup_model(input_size, time_steps, device, model_config, training_config, y_train, logger)
     
-    # Evaluate
-    run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_config, logger, tracker)
-    
-    # XAI for Hybrid model
-    if model.model_name in [ 'HybridStackingModel']:
-        run_xai(model, experiment_config['experiment'].get('dataset_name'), experiment_config['experiment'].get('xai_cases', 1), time_steps, experiment_dir, logger, device)
+    if model_prep[-1] is True:
+        # Ensemble
+        ensemble_model, base_models, criterion, optimizers, qat_enabled, is_hybrid, is_ensemble = model_prep
+        for name, m in base_models.items():
+            base_models[name] = run_training(
+                m, criterion, optimizers[name], train_loader, val_loader, device, training_config, logger, qat_enabled
+            )
+        ensemble_model.fit_meta_from_loader(val_loader)
+        # Evaluate
+        run_evaluation(ensemble_model, test_loader, device, is_hybrid, is_ensemble, plots_dir, model_config, logger, tracker)
     else:
-        logger.info("XAI explanations are only implemented for HybridStackingModel. Skipping XAI step...")
-    
+        model, criterion, optimizer, qat_enabled, is_hybrid, is_ensemble = model_prep
+        # Train
+        model = run_training(model, criterion, optimizer, train_loader, val_loader, device, training_config, logger, qat_enabled)
+        
+        # Evaluate
+        run_evaluation(model, test_loader, device, is_hybrid, is_ensemble, plots_dir, model_config, logger, tracker)
+        
+        # XAI for Hybrid model
+        if model.model_name in [ 'HybridStackingModel']:
+            run_xai(model, experiment_config['experiment'].get('dataset_name'), experiment_config['experiment'].get('xai_cases', 1), time_steps, experiment_dir, logger, device)
+        else:
+            logger.info("XAI explanations are only implemented for HybridStackingModel. Skipping XAI step...")
+        
     # Save Hyperparameters
     params = {
             "Data Config": data_config,

@@ -3,7 +3,7 @@
 # Core Deep Learning Frameworks
 torch==2.8.0 # No CUDA is needed or used on macOS.
 # torch==2.3.0+cu121 # Optional: NVIDIA GPU support
-torchvision==2.8.0
+torchvision==0.23.0
 torchaudio==2.8.0
 
 # Spiking Neural Networks

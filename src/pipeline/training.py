@@ -37,12 +37,13 @@ def run_training(model, criterion, optimizer, train_loader, val_loader, device, 
             q_model = quantize_model(model, logger)
             return q_model    
         
-    if model.model_name == 'HybridModel' :
+    if model.model_name in ['HybridModel', 'HybridCNNLSTM'] :
         if model.meta_learning is False:
             logger.warning("Meta-learning not enabled. Returning base model.")
             return model
-        from src.models.green_xgboost_stack_model import HybridStackingModel
-        stacking = HybridStackingModel(model, training_config.get('xgboost_params', None))
+        from ensemble.registry import ENSEMBLE_REGISTRY
+        ensemble = ENSEMBLE_REGISTRY.get('hybrid_stacking')
+        stacking = ensemble(model, training_config.get('xgboost_params', None))
         copy_train_loader = torch.utils.data.DataLoader(
             train_loader.dataset,
             batch_size=training_config['training_params'].get('batch_size', 512),
@@ -63,11 +64,6 @@ def run_training(model, criterion, optimizer, train_loader, val_loader, device, 
         stacking.meta_model.save_model(xgb_path)
         
         logger.info(f"XGBoost meta-learner saved at: {xgb_path}")
-        try: 
-            torch.save(stacking.state_dict(), os.path.join(save_dir, 'stacked_'+checkpoint_name))
-            logger.info(f'Model checkpoint saved at {save_path}')
-        except Exception as e:
-            logger.warning(f"Could not save stacking model state_dict: {e}")
         logger.info("Stacking training complete.")
         
         return stacking

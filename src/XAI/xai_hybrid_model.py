@@ -29,7 +29,7 @@ def batch_lime_explanations(model, explainer, data_points, config, time_steps, d
         try:
             # Extract fused features (PyTorch forward)
             with torch.no_grad():
-                fused = model.hybrid_model(data_tensor_seq, return_features=True)  # [N, D]
+                fused = model.hybrid_model.extract_fused_features(data_tensor_seq)  # [N, D]
         except Exception as e:
             logger.error(f"Error during feature extraction: {e}")
             return None

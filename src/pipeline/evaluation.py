@@ -4,32 +4,62 @@ import torch
 import torch.nn as nn
 from ptflops import get_model_complexity_info
 
-from src.utils.flops import calculate_flops_hybrid, calculate_flops_hybrid_ml
+from src.utils.flops import calculate_flops_hybrid, calculate_flops_hybrid_ml, calculate_flops_ensemble_model
 from src.utils.metrics import calculate_metrics, find_best_threshold
 from src.utils.plotting import plotting
-from src.utils.model_utils import get_model_size
+from src.utils.common import get_model_size, get_ensemble_size
 from src.pipeline.tracking import stop_tracker
 
-def run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_config, logger, tracker):
+def run_evaluation(model, test_loader, device, is_hybrid, is_ensemble, plots_dir, model_config, logger, tracker):
     """
     Evaluate the model, measuring latency, FLOPs, size, metrics (accuracy, precision, recall, F1, ROC-AUC,
     average precision, confusion matrix), and generating plots.
     """
     logger.info('Evaluating model')
 
-    # --- Detect if we are dealing with a stacking wrapper ---
-    is_stacking = (hasattr(model, "hybrid_model") and hasattr(model, "predict_proba")
-                   and not isinstance(model, nn.Module))
-    if is_stacking:
-        base_model = model.hybrid_model  # PyTorch HybridModel
-        base_model.eval()
-    else:
+    # Determine model type
+    is_nn_model = isinstance(model, nn.Module)
+
+    is_meta_model = (
+        not is_nn_model and
+        hasattr(model, 'fit_meta') and
+        hasattr(model, 'predict_proba')
+    )
+
+    has_base_learners = (
+            hasattr(model, 'cnn_model') or
+            hasattr(model, 'lstm_model') or
+            hasattr(model, 'transformer_model')
+        )
+    has_hybrid_model = hasattr(model, 'hybrid_model')
+
+    # Handling evaluation for different model types
+    if is_meta_model:
+        if has_base_learners:
+            logger.info("Detected stacking ensemble model with base learners.")
+            model.cnn_model.eval()
+            model.lstm_model.eval()
+            model.transformer_model.eval()
+            base_model = None
+
+        elif has_hybrid_model:
+            logger.info("Detected stacking ensemble model with hybrid base model.")
+            model.hybrid_model.eval()
+            base_model = model.hybrid_model
+
+        else:
+            logger.warning("Meta-model detected without base learners. Ensure this is intended.")
+    
+    elif is_nn_model:
         base_model = model
         base_model.eval()
+    
+    else:
+        raise ValueError("Unsupported model type for evaluation.")
 
     all_preds_proba, all_y_test = [], []
 
-    # Latebcy
+    # Latency
     logger.info('Measuring inference latency...')
     real_input, _ = next(iter(test_loader))
     real_input = real_input.to(device)
@@ -37,8 +67,8 @@ def run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_confi
     # Warm-up
     for _ in range(5):
         with torch.no_grad():
-            if is_stacking:
-                _ = model.predict_proba(real_input)  # returns numpy
+            if is_meta_model:
+                _ = model.predict_proba(real_input)  
             else:
                 _ = base_model(real_input)
 
@@ -47,7 +77,7 @@ def run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_confi
     for _ in range(runs):
         start_time = time.time()
         with torch.no_grad():
-            if is_stacking:
+            if is_meta_model:
                 _ = model.predict_proba(real_input)
             else:
                 _ = base_model(real_input)
@@ -60,22 +90,17 @@ def run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_confi
         for data, target in test_loader:
             data = data.to(device)
 
-            if is_stacking:
-                # HybridStackingModel: proba returned as numpy [B]
+            if is_meta_model:
                 proba = model.predict_proba(data)
-                probabilities = np.asarray(proba).flatten()
+                probabilities = np.asarray(proba).reshape(-1)
             else:
-                # Plain PyTorch model: outputs logits → apply sigmoid
                 outputs = base_model(data)
-                probabilities = torch.sigmoid(outputs).cpu().numpy().flatten()
+                probabilities = torch.sigmoid(outputs).cpu().numpy().reshape(-1)
 
             all_preds_proba.extend(probabilities)
 
             # Target handling unchanged
-            if is_hybrid:
-                all_y_test.extend(target[:, -1, :].cpu().numpy().flatten())
-            else:
-                all_y_test.extend(target.cpu().numpy().flatten())
+            all_y_test.extend(target.cpu().numpy().flatten())
 
     all_y_test = np.array(all_y_test)
     all_preds_proba = np.array(all_preds_proba)
@@ -116,9 +141,20 @@ def run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_confi
             logger,
         )
         flops = flops_d.get('Total FLOPs', np.nan)
+    elif is_meta_model and has_base_learners:
+        flops = calculate_flops_ensemble_model(model, tuple(input_size), logger)
     else:
         flops = np.nan
         logger.warning('Could not calculate FLOPs. Unsupported model type.')
+
+    if is_meta_model and has_base_learners:
+        size_models, breakdown = get_ensemble_size(model)
+        logger.info("Model size breakdown (MB):")
+        for k, v in breakdown.items():          
+            logger.info(f"  {k}: {v:.4f} MB")
+        logger.info(f"Total ensemble model size: {size_models:.4f} MB")
+    else:
+        size_models = get_model_size(base_model)
 
     # End CodeCarbon tracker (if provided)
     emissions = stop_tracker(tracker, logger)
@@ -142,7 +178,7 @@ def run_evaluation(model, test_loader, device, is_hybrid, plots_dir, model_confi
     green_metrics = {
         'latency_ms': avg_latency,
         'flops_gflops': flops_gflops,
-        'size_model': get_model_size(base_model),
+        'size_model': size_models,
         'emissions_kg_co2e': emissions,
     }
 

@@ -6,7 +6,8 @@ import os
 from src.training.compression import prepare_qat_model, convert_qat_model, apply_pruning, remove_pruning
 from src.utils.config_parser import load_config
 from src.utils.common import get_device
-from src.utils.model_utils import load_model, get_best_model
+from src.pipeline.model_factory import load_model
+from src.pipeline.utils import get_best_model
 from src.utils.metrics import calculate_metrics
 from src.utils.logger import setup_logger
 from src.data.dataloaders import get_dataloaders
@@ -46,8 +47,7 @@ class Trainer:
             output = self.model(data)
 
             # Reshape target to match hte model's output shape
-            if self.model.model_name == 'HybridModel':
-                target = target[:, -1, :].reshape(output.shape)
+            target = target.float().view_as(output)
 
             loss = self.criterion(output, target)
             loss.backward()
@@ -75,8 +75,7 @@ class Trainer:
                 output = self.model(data)
 
                 # Reshape target to match hte model's output shape
-                if self.model.model_name == 'HybridModel':
-                    target = target[:, -1, :].reshape(output.shape)
+                target = target.float().view_as(output)
 
                 loss = self.criterion(output, target)
                 total_loss += loss.item()
@@ -116,7 +115,7 @@ class Trainer:
         model_name = "_".join(prefixes + [self.model.model_name+'.pth'])
         
         # Tracking
-        best_val_f2 = -1.0
+        best_val= -1.0
         best_epoch = -1
         patience = self.training_config['training_params']['early_stopping'].get('patience',5)
         no_improve_epochs = 0
@@ -154,23 +153,24 @@ class Trainer:
                 self.model = apply_pruning(self.model, epoch, pruning_config, logger)
 
             # Validation
+            monitor_metric_n = self.training_config['training_params'].get('monitor_metric', 'f2_score')
             val_loss, metrics = self.validate_epoch()
-            f2_score = metrics.get('f2_score', None)
+            monitor_metric = metrics.get(monitor_metric_n, None)
             f1 = metrics.get('f1_score', None)
             recall = metrics.get('recall', None)
             logger.info(f"Train Loss: {train_loss:.4f}, "
-                        f"Val Loss: {val_loss:.4f}, F2-score: {f2_score:.4f}, F1: {f1:.4f}, recall: {recall:.4f}")
+                        f"Val Loss: {val_loss:.4f}, {monitor_metric_n}: {monitor_metric:.4f}, F1: {f1:.4f}, recall: {recall:.4f}")
 
             # LR scheduling
             if schedular is not None and f1 is not None:
                 schedular.step(f1)
 
             #Save best model
-            best_val_f2, best_epoch, no_improve_epochs = get_best_model(self.model, f2_score, epoch, best_val_f2, best_epoch, no_improve_epochs, model_save_path, model_name,self.training_config['compression_params'], logger)
+            best_val, best_epoch, no_improve_epochs = get_best_model(self.model, monitor_metric_n, monitor_metric, epoch, best_val, best_epoch, no_improve_epochs, model_save_path, model_name,self.training_config['compression_params'], logger)
 
             # Early stopping
             if no_improve_epochs >= patience and self.training_config['training_params']['early_stopping'].get('enabled', False):
-                logger.info(f'Early stopping at epoch {epoch+1}. No improvement in F1 for {patience} consecutive epochs.')
+                logger.info(f'Early stopping at epoch {epoch+1}. No improvement in {monitor_metric_n} for {patience} consecutive epochs.')
                 break
 
         # Cleanup pruning masks

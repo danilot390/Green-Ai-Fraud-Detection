@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.1.0] - 2026-01-20
-([commit]())
+([commit b3b5972](https://github.com/danilot390/Green-Ai-Fraud-Detection/commit/b3b5972ba648718b54be8e3836629b1c2eb8c84b))
 ### Added
 - Ensemble support and hybrid model expansion.
 - Ileberi & Sun (2024) ensemble model to compare against  the main Green AI architecture, using static parameters.
